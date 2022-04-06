@@ -1,0 +1,78 @@
+---
+title: "Final Project Spring 2022"
+author: "Qinnuo Li, Di Zhang"
+date: "3/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+Under construction.
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+library(visdat)
+```
+
+This project uses the `tidyverse` suite of packages. 
+
+`visdat` is used in Part 1 to visually check for the missing values in the data frame.  
+
+## Read Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+```
+
+We first read in the data for the final project as a data frame. After running this code chunk we are informed that this data frame has 677 rows and 38 columns. Of the 38 columns, 3 are `chr` (string or character) data types and 35 are `dbl` (numeric) data types.  
+
+## A Glimpse of the Data
+
+We now take a "glimpse" of the data frame by calling the `glimpse()` function, to get a better idea of what those 38 columns look like - the variable names, their data types, as well as a snapshot of their values in the first few rows:  
+
+```{r, read_data_02}
+df_all %>% glimpse()
+```
+Combined with the final project guide, we understand that the 38 variables are divided into 3 categories: identifiers(`rowid`, `region` and `customer`), sentiment derived features(columns start with `x`), and outputs(`response` and `outcome`). Together one row of the data frame corresponds to a product sold to a customer.  
+
+We will ignore `rowid` as it's used only for book-keeping purposes. Among the identifiers, `region` and `customer` are both categorical. The sentiment derived features are continuous variables. `response` is a continuous output representing the average hours per week associated with a product sold to a customer; `outcome` is a categorical output that takes on the value of either "event" or "non_event", with "event" representing the product did NOT achieve its sales goal.  
+
+# Project Part 1: Exploration
+
+## 1.1 Basic Information
+
+We first visually check for missing values in the data frame using the `visdat` package.  
+```{r, basic_info_01}
+visdat::vis_miss(df_all)
+```
+We confirmed that there is no missing values.  
+
+We then check for the number of unique values per variable.  
+```{r, basic_info_02}
+df_all %>% purrr::map_dbl(n_distinct)
+```
+Here we are seeing the categorical variables have few distinct values. Let's use the `count()` function to reveal the levels for each variable and the counts associated with each level, and plot a bar chart to visualize the distribution of the categorical variables.  
+
+```{r, basic_info_03_region}
+df_all %>% count(region)
+df_all %>% ggplot(mapping = aes(x = region)) + geom_bar()
+```
+
+
+## Regression Task
+
+```{r, reg_01}
+dfii <- df_all %>% 
+  mutate(y = log(response)) %>% 
+  select(region, customer, starts_with('x'), y)
+
+dfii %>% glimpse()
+```
+
+
+
