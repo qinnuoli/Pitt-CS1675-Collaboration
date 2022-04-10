@@ -17,11 +17,12 @@ Under construction.
 ```{r, load_packages}
 library(tidyverse)
 library(visdat)
+library(corrplot)
 ```
 
-This project uses the `tidyverse` suite of packages. 
-
-`visdat` is used in Part 1 to visually check for the missing values in the data frame.  
+* `tidyverse` suite of packages is used throughout the entire project.  
+* `visdat` is used in Part 1 to visually check for the missing values in the data frame. 
+* `corrplot` is used to create correlation plot, to visualize the relationship between continuous inputs.  
 
 ## Read Data
 
@@ -38,35 +39,273 @@ We now take a "glimpse" of the data frame by calling the `glimpse()` function, t
 ```{r, read_data_02}
 df_all %>% glimpse()
 ```
-Combined with the final project guide, we understand that the 38 variables are divided into 3 categories: identifiers(`rowid`, `region` and `customer`), sentiment derived features(columns start with `x`), and outputs(`response` and `outcome`). Together one row of the data frame corresponds to a product sold to a customer.  
+
+Combined with the final project guide, we understand that the 38 variables are divided into 3 categories: identifiers(`rowid`, `region` and `customer`), sentiment derived features(columns start with `x`), and outputs(`response` and `outcome`). putting all the columns together, one row of the data frame corresponds to a product sold to a customer.  
 
 We will ignore `rowid` as it's used only for book-keeping purposes. Among the identifiers, `region` and `customer` are both categorical. The sentiment derived features are continuous variables. `response` is a continuous output representing the average hours per week associated with a product sold to a customer; `outcome` is a categorical output that takes on the value of either "event" or "non_event", with "event" representing the product did NOT achieve its sales goal.  
 
 # Project Part 1: Exploration
 
-## 1.1 Basic Information
+## 1.1 Check for missing values
 
 We first visually check for missing values in the data frame using the `visdat` package.  
-```{r, basic_info_01}
+```{r, pt01_sec01}
 visdat::vis_miss(df_all)
 ```
+
 We confirmed that there is no missing values.  
 
+## 1.2 Check for unique values per variable
+
 We then check for the number of unique values per variable.  
-```{r, basic_info_02}
+```{r, pt01_sec02}
 df_all %>% purrr::map_dbl(n_distinct)
 ```
+
 Here we are seeing the categorical variables have few distinct values. Let's use the `count()` function to reveal the levels for each variable and the counts associated with each level, and plot a bar chart to visualize the distribution of the categorical variables.  
 
-```{r, basic_info_03_region}
+## 1.3 Visualize the distribution of variables - counts for categorical variables
+
+```{r, pt01_sec03_region}
 df_all %>% count(region)
 df_all %>% ggplot(mapping = aes(x = region)) + geom_bar()
 ```
 
+Executing the above code chunk reveals there are three regions, `xx`, `yy`, and `zz`, where `xx` appears `r count(df_all$region = xx)` times in the data set, `yy` `r count(df_all$region = yy)` times, and `zz` `r count(df_all$region = zz)` times.  
 
-## Regression Task
+```{r, pt01_sec03_customer}
+df_all %>% count(customer)
+df_all %>% ggplot(mapping = aes(x = customer)) + geom_bar()
+```
 
-```{r, reg_01}
+There are 9 customers in total, including a lumped `Other`. Among the 9 customers, `G`, `M`, and `Other` appear in the data set more than 60 times, while `A`, `B`, `D`, `E`, `K`, `Q` appear less than 60 times.  
+
+```{r, pt01_sec03_outcome}
+df_all %>% count(outcome)
+df_all %>% ggplot(mapping = aes(x = outcome)) + geom_bar()
+mean(df_all$outcome == "event")
+```
+From the bar chart it's obvious that `outcome` is imbalanced, with the empirical event frequency being 0.19, meaning that empirically the event (the product did not achieve its sales goal) only happens 19% of the time.  
+
+## 1.4 Visualize the distribution of variables - distribution for continuous variables
+
+We will now move on to visualize the distribution of continuous variables - all the variables that start with "x" as well as `response`. First we examine the distribution of each sentiment derived features, in the order of `xb_`, `xn_`, `xa_`, `xw_`, and `xs_`. Then we will examine the distribution for `response`.  
+
+```{r, pt01_sec04_xb_summary}
+df_all %>% 
+  select(all_of(starts_with("xb_"))) %>%
+  summary()
+```
+
+```{r, pt01_sec04_xb_histogram}
+df_all %>% 
+  select(all_of(starts_with("xb_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+`xb_` features have varied distributions. `xb_02` and ``xb_03` looks like they are taking on discrete values along the x-axis. Among the total of 8 `xb_` features only `xb_01` and `xb_04` vaguely assembles a Gaussian distribution.  
+
+```{r, pt01_sec04_xn_summary}
+df_all %>% 
+  select(all_of(starts_with("xn_"))) %>%
+  summary()
+```
+
+```{r, pt01_sec04_xn_histogram}
+df_all %>% 
+  select(all_of(starts_with("xn_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+Similar to `xb_02` and `xb_03`, `xn_02` and `xn_03` both take on discrete values on the x-axis.  
+
+```{r, pt01_sec04_xa_summary}
+df_all %>% 
+  select(all_of(starts_with("xa_"))) %>%
+  summary()
+```
+
+```{r, pt01_sec04_xa_histogram}
+df_all %>% 
+  select(all_of(starts_with("xa_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+```{r, pt01_sec04_xs_summary}
+df_all %>% 
+  select(all_of(starts_with("xs_"))) %>%
+  summary()
+```
+
+```{r, pt01_sec04_xs_histogram}
+df_all %>% 
+  select(all_of(starts_with("xs_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+With the `xs_` features, all except `xs_05` and `xs_06` looks roughly Gaussian.  
+
+```{r, pt01_sec04_xw_summary}
+df_all %>% 
+  select(all_of(starts_with("xw_"))) %>%
+  summary()
+```
+
+```{r, pt01_sec04_xw_histogram}
+df_all %>% 
+  select(all_of(starts_with("xw_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+`xw_02` seems to have a lot of 0's, and `xw_03` has a lot of values greater than 90. `xw_01` looks like a normal distribution.  
+
+```{r, pt01_sec04_response_summary}
+df_all %>% 
+  select(response) %>%
+  summary()
+```
+
+```{r, pt01_sec04_response_histogram}
+df_all %>% 
+  select(response) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  geom_vline(xintercept = quantile(df_all$response),
+             color = 'red', size = 1, linetype = 'dashed') +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+The `response` is right-skewed, with most of it values concentrated on the [0, 5] interval and some extreme values on the right-hand side forming a long tail.  
+
+## 1.5 Conditioning the continuous variables based on the categorical variables
+
+## 1.5.1 Differences based on region
+
+Let's now condition the input distributions by the `region` level.  
+
+```{r, pt01_sec05_region}
+df_all %>% 
+  select(-rowid, -customer, -outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid", "region")) %>% 
+  mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(mapping = aes(group = interaction(input_id, region),
+                             fill = region,
+                             color = region),
+               alpha = 0.25) +
+  ggthemes::scale_color_colorblind() +
+  ggthemes::scale_fill_colorblind() +
+  theme(legend.position = "top")
+```
+
+
+## 1.5.2 Differences based on customer
+
+```{r, pt01_sec05_customer}
+df_all %>% 
+  select(-rowid, -region, -outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid", "customer")) %>% 
+  mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(mapping = aes(group = interaction(input_id, customer),
+                             fill = customer,
+                             color = customer),
+               alpha = 0.25) +
+  ggthemes::scale_color_colorblind() +
+  ggthemes::scale_fill_colorblind() +
+  theme(legend.position = "top")
+```
+
+## 1.5.3 Differences based on binary outcome
+
+```{r, pt01_sec05_outcome}
+df_all %>% 
+  select(-rowid, -region, -customer) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid", "outcome")) %>% 
+  mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(mapping = aes(group = interaction(input_id, outcome),
+                             fill = outcome,
+                             color = outcome),
+               alpha = 0.25) +
+  ggthemes::scale_color_colorblind() +
+  ggthemes::scale_fill_colorblind() +
+  theme(legend.position = "top")
+```
+
+## 1.6 Visualize the correlation between the continuous inputs
+
+```{r, pt01_sec06_corr}
+df_all %>% 
+  select(all_of(starts_with("x"))) %>% 
+  cor() %>% 
+  corrplot::corrplot(method = 'square', type = 'upper')
+```
+The correlation plot above reveals patterns of high correlation, no correlation, and anti-correlation between the inputs. We can, however, rearrange the variables and group correlated variables together to get a better sense of the grouping structure within the data using hierarchical clustering.
+
+```{r, pt01_sec06_hclust}
+df_all %>% 
+  select(all_of(starts_with("x"))) %>% 
+  cor() %>% 
+  corrplot::corrplot(method = 'square', type = 'upper',
+                     order = 'hclust', hclust.method = 'ward.D2')
+```
+
+## 1.7 Visualize the relationship between the continuous outputs with respect to the continuous inputs
+
+```{r, pt01_sec07_xb_response, eval=FALSE}
+# a figure like this but for each xb_ feature
+df_all %>% 
+  ggplot(mapping = aes(x = xb_01, y = response)) +
+  geom_point()
+
+df_all %>% 
+  select(all_of(starts_with("xb_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value, y = df_all$response)) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+
+## 1.8 Visualize the behavior of the binary outcome with respect to the continuous inputs
+
+# Project Part 2: Regression
+
+```{r}
 dfii <- df_all %>% 
   mutate(y = log(response)) %>% 
   select(region, customer, starts_with('x'), y)
