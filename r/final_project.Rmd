@@ -213,7 +213,7 @@ Let's now condition the input distributions by the `region` level.
 
 ```{r, pt01_sec05_region}
 df_all %>% 
-  select(-rowid, -customer, -outcome) %>%
+  select(-rowid, -customer, -outcome, -response) %>%
   tibble::rowid_to_column() %>% 
   pivot_longer(!c("rowid", "region")) %>% 
   mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
@@ -232,7 +232,7 @@ df_all %>%
 
 ```{r, pt01_sec05_customer}
 df_all %>% 
-  select(-rowid, -region, -outcome) %>%
+  select(-rowid, -region, -outcome, -response) %>%
   tibble::rowid_to_column() %>% 
   pivot_longer(!c("rowid", "customer")) %>% 
   mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
@@ -250,7 +250,7 @@ df_all %>%
 
 ```{r, pt01_sec05_outcome}
 df_all %>% 
-  select(-rowid, -region, -customer) %>%
+  select(-rowid, -region, -customer, -response) %>%
   tibble::rowid_to_column() %>% 
   pivot_longer(!c("rowid", "outcome")) %>% 
   mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
@@ -282,7 +282,9 @@ df_all %>%
                      order = 'hclust', hclust.method = 'ward.D2')
 ```
 
-## 1.7 Visualize the relationship between the continuous outputs with respect to the continuous inputs
+Looking at this hierarchical clustered correlation plot, there does exist high correlation and anti-correlation between the features. For cells close to the main diagonal line there are squares with dark blue, representing high correlations; there are also less than 10 cells with relatively dark red color, indicating a moderate anti-correlation.  
+
+## 1.7 Visualize the behavior of the continuous outputs with respect to the continuous inputs
 
 ```{r, pt01_sec07_xb_response, eval=FALSE}
 # a figure like this but for each xb_ feature
