@@ -6,6 +6,10 @@ Apr 6th
 
 Emma: Created project repo, uploaded the R markdown file with a bit of prep work.
 
+Apr 20
+
+Emma: Refactored and completed Part 1 of exploratory data analysis.
+
 ### Notes & Communication
 
 Apr 6th
