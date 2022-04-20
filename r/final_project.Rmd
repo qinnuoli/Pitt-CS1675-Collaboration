@@ -53,7 +53,7 @@ We first visually check for missing values in the data frame using the `visdat` 
 visdat::vis_miss(df_all)
 ```
 
-We confirmed that there is no missing values.  
+We confirm that there is no missing values, as all data are present.  
 
 ## 1.2 Check for unique values per variable
 
@@ -81,21 +81,36 @@ df_all %>% ggplot(mapping = aes(x = customer)) + geom_bar()
 There are 9 customers in total, including a lumped `Other`. Among the 9 customers, `G`, `M`, and `Other` appear in the data set more than 60 times, while `A`, `B`, `D`, `E`, `K`, `Q` appear less than 60 times.  
 
 ```{r, pt01_sec03_outcome}
-df_all %>% count(outcome)
+df_all %>% count(outcome) %>% mutate(prop = n / sum(n))
 df_all %>% ggplot(mapping = aes(x = outcome)) + geom_bar()
-mean(df_all$outcome == "event")
 ```
-From the bar chart it's obvious that `outcome` is imbalanced, with the empirical event frequency being 0.19, meaning that empirically the event (the product did not achieve its sales goal) only happens 19% of the time.  
+
+In this data set `outcome` is imbalanced, with the empirical event frequency being about 19%, meaning that the event is observed 19% out of all observations, and 81% of the time non-event is observed.  
 
 ## 1.4 Visualize the distribution of variables - distribution for continuous variables
 
-We will now move on to visualize the distribution of continuous variables - all the variables that start with "x" as well as `response`. First we examine the distribution of each sentiment derived features, in the order of `xb_`, `xn_`, `xa_`, `xw_`, and `xs_`. Then we will examine the distribution for `response`.  
+To better visualize the distribution of the continuous variable, we will print out the summary statistics, and plot a boxplot to visualize the span of variable values, examining if they are on the similar scale, and help us later decide if pre-processing inputs are necessary. We will then plot a histogram to visualize the distribution of the values to understand where are the values concentrated over the span of all observations. Since we have a decent number of input variables, we will split them according to the naming into `xb` related, `xn` related, `xa` related, `xw` related, and `xs` related, so we only need to focus on a handful of plots at a time.  
+
+After we are done exploring the distribution of each sentiment derived features, in the order of `xb_`, `xn_`, `xa_`, `xw_`, and `xs_`. We will examine the distribution for `response` at the end to finish up the exploration for continuous variables.    
 
 ```{r, pt01_sec04_xb_summary}
 df_all %>% 
   select(all_of(starts_with("xb_"))) %>%
   summary()
 ```
+
+```{r, pt01_sec04_xb_boxplots}
+df_all %>% 
+  select(all_of(starts_with("xb_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  mutate(input_id = stringr::str_extract(name, "\\d+")) %>%
+  mutate(input_id = as.numeric(input_id)) %>%
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(fill = "grey",
+               mapping = aes(group = input_id))
+```
+
 
 ```{r, pt01_sec04_xb_histogram}
 df_all %>% 
@@ -108,12 +123,24 @@ df_all %>%
   theme(axis.text.y = element_blank())
 ```
 
-`xb_` features have varied distributions. `xb_02` and ``xb_03` looks like they are taking on discrete values along the x-axis. Among the total of 8 `xb_` features only `xb_01` and `xb_04` vaguely assembles a Gaussian distribution.  
+Looking at the boxplot for `xb_` features, their values are distributed on a similar scale. They do have varied distributions, however. `xb_02` and ``xb_03` looks like they are taking on discrete values along the x-axis. Among the total of 8 `xb_` features `xb_01` and `xb_04` vaguely assemble a Gaussian distribution.  
 
 ```{r, pt01_sec04_xn_summary}
 df_all %>% 
   select(all_of(starts_with("xn_"))) %>%
   summary()
+```
+
+```{r, pt01_sec04_xb_boxplots}
+df_all %>% 
+  select(all_of(starts_with("xn_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  mutate(input_id = stringr::str_extract(name, "\\d+")) %>%
+  mutate(input_id = as.numeric(input_id)) %>%
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(fill = "grey",
+               mapping = aes(group = input_id))
 ```
 
 ```{r, pt01_sec04_xn_histogram}
@@ -127,12 +154,24 @@ df_all %>%
   theme(axis.text.y = element_blank())
 ```
 
-Similar to `xb_02` and `xb_03`, `xn_02` and `xn_03` both take on discrete values on the x-axis.  
+As with `xb_` features, from the boxplot `xn_` also have all their values concentrated on a smaller scale, roughly from -5 to 10. As with the histograms it's worth noting that `xn_02` and `xn_03` both take on discrete values on the x-axis while the rest seem to be continuous.  
 
 ```{r, pt01_sec04_xa_summary}
 df_all %>% 
   select(all_of(starts_with("xa_"))) %>%
   summary()
+```
+
+```{r, pt01_sec04_xa_boxplots}
+df_all %>% 
+  select(all_of(starts_with("xa_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  mutate(input_id = stringr::str_extract(name, "\\d+")) %>%
+  mutate(input_id = as.numeric(input_id)) %>%
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(fill = "grey",
+               mapping = aes(group = input_id))
 ```
 
 ```{r, pt01_sec04_xa_histogram}
@@ -146,10 +185,24 @@ df_all %>%
   theme(axis.text.y = element_blank())
 ```
 
+From the boxplot `xa_` features take on a larger range of values compared to `xb_` and `xn_`, in the range of (-10, 40). The histogram shows that all values are continuous. No feature is discrete.  
+
 ```{r, pt01_sec04_xs_summary}
 df_all %>% 
   select(all_of(starts_with("xs_"))) %>%
   summary()
+```
+
+```{r, pt01_sec04_xs_boxplots}
+df_all %>% 
+  select(all_of(starts_with("xs_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  mutate(input_id = stringr::str_extract(name, "\\d+")) %>%
+  mutate(input_id = as.numeric(input_id)) %>%
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(fill = "grey",
+               mapping = aes(group = input_id))
 ```
 
 ```{r, pt01_sec04_xs_histogram}
@@ -163,12 +216,24 @@ df_all %>%
   theme(axis.text.y = element_blank())
 ```
 
-With the `xs_` features, all except `xs_05` and `xs_06` looks roughly Gaussian.  
+`xs_` has a much smaller span, over (-1, 2). And with the `xs_` features, all except `xs_05` and `xs_06` looks roughly Gaussian - `xs_05` and `xs_06` are right-skewed. 
 
 ```{r, pt01_sec04_xw_summary}
 df_all %>% 
   select(all_of(starts_with("xw_"))) %>%
   summary()
+```
+
+```{r, pt01_sec04_xw_boxplots}
+df_all %>% 
+  select(all_of(starts_with("xw_"))) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  mutate(input_id = stringr::str_extract(name, "\\d+")) %>%
+  mutate(input_id = as.numeric(input_id)) %>%
+  ggplot(mapping = aes(x = input_id, y = value)) +
+  geom_boxplot(fill = "grey",
+               mapping = aes(group = input_id))
 ```
 
 ```{r, pt01_sec04_xw_histogram}
@@ -182,7 +247,11 @@ df_all %>%
   theme(axis.text.y = element_blank())
 ```
 
-`xw_02` seems to have a lot of 0's, and `xw_03` has a lot of values greater than 90. `xw_01` looks like a normal distribution.  
+`xw_` has all observations span over (0, 105). From the histogram, `xw_01` looks like a normal distribution, `xw_02` has a lot of 0's, and `xw_03` is left-skewed, having a lot of values concentrated on the range greater than 90.  
+
+Given all the boxplots and histograms created so far, we conclude that pre-processing the inputs is preferred in the project as different groups of features have different scales, and some of them are highly skewed.
+
+We will now move on to examine the distribution of the continuous output `response`.  
 
 ```{r, pt01_sec04_response_summary}
 df_all %>% 
@@ -198,7 +267,7 @@ df_all %>%
   ggplot(mapping = aes(x = value)) +
   geom_histogram(bins = 35) +
   geom_vline(xintercept = quantile(df_all$response),
-             color = 'red', size = 1, linetype = 'dashed') +
+             color = 'red', size = 0.5, linetype = 'dashed') +
   facet_wrap(~ name, scales = "free") +
   theme(axis.text.y = element_blank())
 ```
@@ -207,7 +276,7 @@ The `response` is right-skewed, with most of it values concentrated on the [0, 5
 
 ## 1.5 Conditioning the continuous variables based on the categorical variables
 
-## 1.5.1 Differences based on region
+## 1.5.1 Condition the continuous inputs on REGION
 
 Let's now condition the input distributions by the `region` level.  
 
@@ -216,53 +285,57 @@ df_all %>%
   select(-rowid, -customer, -outcome, -response) %>%
   tibble::rowid_to_column() %>% 
   pivot_longer(!c("rowid", "region")) %>% 
-  mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
-  ggplot(mapping = aes(x = input_id, y = value)) +
-  geom_boxplot(mapping = aes(group = interaction(input_id, region),
-                             fill = region,
+  ggplot(mapping = aes(x = region, y = value)) +
+  geom_boxplot(mapping = aes(fill = region,
                              color = region),
-               alpha = 0.25) +
-  ggthemes::scale_color_colorblind() +
-  ggthemes::scale_fill_colorblind() +
-  theme(legend.position = "top")
+               alpha = 0.33) +
+  facet_wrap(~name, scales = "free_y") +
+  scale_fill_brewer(guide = 'none', palette = 'Set1') +
+  scale_color_brewer(guide = 'none', palette = 'Set1') +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
 ```
 
+For `xb`, `xa`, `xn`,  and `xs` set of features, the boxes for each region all overlap with each other and are roughly at the same level. The set for `xw` is worth noting where region `ZZ` has a noticibally larger span of quantiles, indicating the values can be more uncertainty.  
 
-## 1.5.2 Differences based on customer
+## 1.5.2 Condition the continuous inputs on CUSTOMER
 
 ```{r, pt01_sec05_customer}
 df_all %>% 
   select(-rowid, -region, -outcome, -response) %>%
   tibble::rowid_to_column() %>% 
   pivot_longer(!c("rowid", "customer")) %>% 
-  mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
-  ggplot(mapping = aes(x = input_id, y = value)) +
-  geom_boxplot(mapping = aes(group = interaction(input_id, customer),
-                             fill = customer,
+  ggplot(mapping = aes(x = customer, y = value)) +
+  geom_boxplot(mapping = aes(fill = customer,
                              color = customer),
-               alpha = 0.25) +
-  ggthemes::scale_color_colorblind() +
-  ggthemes::scale_fill_colorblind() +
-  theme(legend.position = "top")
+               alpha = 0.33) +
+  facet_wrap(~name, scales = "free_y") +
+  scale_fill_brewer(guide = 'none', palette = 'Set1') +
+  scale_color_brewer(guide = 'none', palette = 'Set1') +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+
 ```
 
-## 1.5.3 Differences based on binary outcome
+Here in `xw` the boxes are a lot more longer compared to those for other features, the range between the first and third quantile is much larger. The median also varies a lot compared to other facets.  
+
+## 1.5.3 Condition the continuous inputs on OUTCOME
 
 ```{r, pt01_sec05_outcome}
 df_all %>% 
   select(-rowid, -region, -customer, -response) %>%
   tibble::rowid_to_column() %>% 
   pivot_longer(!c("rowid", "outcome")) %>% 
-  mutate(input_id = as.integer( stringr::str_extract(name, "\\d+") )) %>% 
-  ggplot(mapping = aes(x = input_id, y = value)) +
-  geom_boxplot(mapping = aes(group = interaction(input_id, outcome),
-                             fill = outcome,
-                             color = outcome),
-               alpha = 0.25) +
-  ggthemes::scale_color_colorblind() +
-  ggthemes::scale_fill_colorblind() +
-  theme(legend.position = "top")
+  ggplot(mapping = aes(x = value)) +
+  geom_freqpoly(mapping = aes(y = stat(density), color = outcome),
+                size = 1, bins = 21) +
+  facet_wrap(~name, scales = "free") +
+  scale_color_brewer(palette = "Set1") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
 ```
+
+The frequency polygon for `event` and `non-event`, for most features, share similar shapes and have overlaps with each other. Some places it's difficult to tell the two apart. Among the five sets of features, the frequency polygon for `event` and `non-event` in `xn` is the most distinct and the easiest to tell the two apart. This indicates that `xn` might be very helpful in helping the model pick up trends and make predictions.  
 
 ## 1.6 Visualize the correlation between the continuous inputs
 
@@ -286,24 +359,129 @@ Looking at this hierarchical clustered correlation plot, there does exist high c
 
 ## 1.7 Visualize the behavior of the continuous outputs with respect to the continuous inputs
 
-```{r, pt01_sec07_xb_response, eval=FALSE}
-# a figure like this but for each xb_ feature
+```{r, pt01_sec07_xb_response, eval=TRUE}
 df_all %>% 
-  ggplot(mapping = aes(x = xb_01, y = response)) +
-  geom_point()
-
-df_all %>% 
-  select(all_of(starts_with("xb_"))) %>%
+  select(starts_with("xb_"), response) %>%
   tibble::rowid_to_column() %>% 
-  pivot_longer(!c("rowid")) %>% 
-  ggplot(mapping = aes(x = value, y = df_all$response)) +
+  pivot_longer(starts_with("xb_")) %>% 
+  ggplot(mapping = aes(x = value, y = log(response))) +
   geom_point() +
   facet_wrap(~ name, scales = "free") +
-  theme(axis.text.y = element_blank())
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
 ```
 
+```{r, pt01_sec07_xa_response, eval=TRUE}
+df_all %>% 
+  select(starts_with("xa_"), response) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xa_")) %>% 
+  ggplot(mapping = aes(x = value, y = log(response))) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec07_xn_response, eval=TRUE}
+df_all %>% 
+  select(starts_with("xn_"), response) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xn_")) %>% 
+  ggplot(mapping = aes(x = value, y = log(response))) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec07_xs_response, eval=TRUE}
+df_all %>% 
+  select(starts_with("xs_"), response) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xs_")) %>% 
+  ggplot(mapping = aes(x = value, y = log(response))) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec07_xn_response, eval=TRUE}
+df_all %>% 
+  select(starts_with("xn_"), response) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xn_")) %>% 
+  ggplot(mapping = aes(x = value, y = log(response))) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
 
 ## 1.8 Visualize the behavior of the binary outcome with respect to the continuous inputs
+
+```{r, pt01_sec08_xb_outcome, eval=TRUE}
+df_all %>% 
+  select(starts_with("xb_"), outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xb_")) %>% 
+  ggplot(mapping = aes(x = value, y = outcome)) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec08_xa_outcome, eval=TRUE}
+df_all %>% 
+  select(starts_with("xa_"), outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xa_")) %>% 
+  ggplot(mapping = aes(x = value, y = outcome)) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec08_xn_outcome, eval=TRUE}
+df_all %>% 
+  select(starts_with("xn_"), outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xn_")) %>% 
+  ggplot(mapping = aes(x = value, y = outcome)) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec08_xs_outcome, eval=TRUE}
+df_all %>% 
+  select(starts_with("xs_"), outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xs_")) %>% 
+  ggplot(mapping = aes(x = value, y = outcome)) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, pt01_sec08_xb_outcome, eval=TRUE}
+df_all %>% 
+  select(starts_with("xw_"), outcome) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(starts_with("xw_")) %>% 
+  ggplot(mapping = aes(x = value, y = outcome)) +
+  geom_point() +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+Looking at the graphs of the behavior of the outcome with respect to the continuous inputs, no linear separability is found in anyone of them.  
 
 # Project Part 2: Regression
 
