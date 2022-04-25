@@ -493,5 +493,127 @@ dfii <- df_all %>%
 dfii %>% glimpse()
 ```
 
+# 2.1
+
+# Load packages
+```{r}
+library(caret)
+```
+
+# Data-preprocessing (continuous)
+
+Response is highly skewed right. We will be looking at its log-transformation `y`, which has a more normally-distributed shape.
+```{r}
+dfii %>% 
+  select(y) %>%
+  tibble::rowid_to_column() %>% 
+  pivot_longer(!c("rowid")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 35) +
+  geom_vline(xintercept = quantile(dfii$y),
+             color = 'red', size = 1, linetype = 'dashed') +
+  facet_wrap(~ name, scales = "free") +
+  theme(axis.text.y = element_blank())
+```
+
+For xw_02 and xw_03 which are highly skewed to the right and left respectively, we are going to center and scale the data during training and testing process.
+
+We also took a look at the correlation between each variables. Based on what we saw in data exploration, we decide to preprocess the data in order to deal with the issue of correlation and reduce its impact on our models. There are two main groups that we are concerned about [WIP].
+
+xb_04 and xb_05 are involved in a few high correlation with other variables but have correlations close to 0 with the response.
+
+# Training Models and Initial Evaluations
+
+# Load test data
+```{r}
+# [WIP]
+```
+
+# i) Categorical linear model
+```{r, pt02_sec01, eval=TRUE}
+mod01 <- lm(y ~ region + customer, data = dfii)
+mod01 %>% readr::write_rds('mod01.rds')
+```
+
+# ii) Continuous linear model
+```{r, pt02_sec02, eval=TRUE}
+mod02 <- lm(y ~ (.), data = dfii[c(1,c(3:36))])
+mod02 %>% readr::write_rds('mod02.rds')
+```
+
+# iii) All categorical and continuous model (linear additive)
+```{r, pt02_sec03, eval=TRUE}
+mod03 <- lm(y ~ (.), data = dfii)
+mod03 %>% readr::write_rds('mod03.rds')
+```
+
+# iv) Region with continuous model
+```{r, pt02_sec04, eval=TRUE}
+mod04 <- lm(y ~ (.), data = dfii[c(1,c(3:36))])
+mod04 %>% readr::write_rds('mod04.rds')
+```
+
+# v) Customer with continuous model
+```{r, pt02_sec05, eval=TRUE}
+mod05 <- lm(y ~ (.), data = dfii[c(2:36)])
+mod05 %>% write_rds('mod05.rds')
+```
+
+# vi) All pairwise interaction between continous inputs
+```{r, pt02_sec06, eval=TRUE}
+mod06 <- lm(y ~ (.)^2, data = dfii[c(3:36)])
+mod06 %>% write_rds('mod06.rds')
+```
+
+# vii) Basis of choice 1: [BASIS NAME]
+```{r, pt02_sec07_1, eval=FALSE}
+
+```
+
+# viii) Basis of choice 2: [BASIS NAME]
+```{r, pt02_sec07_2, eval=FALSE}
+```
+
+# ix) Basis of choice 3: [BASIS NAME]
+```{r, pt02_sec07_3, eval=FALSE}
+```
+
+# Identifying best performing model
+
+```{r}
+# Adopted from homework 8 1h)
+extract_metrics <- function(mod, mod_name)
+{
+  broom::glance(mod) %>% mutate(mod_name = mod_name)
+}
+```
+
+```{r}
+# Adopted from homework 8 1h)
+all_metrics <- purrr::map2_dfr(list(mod01, mod02, mod03, mod04, mod05, mod06),
+                               as.character(1:6),
+                               extract_metrics)
+all_metrics %>% 
+  select(mod_name, df, r.squared, AIC, BIC) %>% 
+  pivot_longer(!c("mod_name", "df")) %>% 
+  ggplot(mapping = aes(x = mod_name, y = value)) +
+  geom_point(size = 5) +
+  facet_wrap(~name, scales = "free_y") +
+  theme_bw()
+```
 
 
+
+# Coefficient Visualization
+
+```{r, eval=FALSE}
+mod0 %>% coefplot::coefplot() +
+  theme_bw() +
+  theme(legend.position = 'none')
+```
+
+# Fitting Two Models
+
+# i)
+
+# ii)
