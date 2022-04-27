@@ -1,0 +1,193 @@
+---
+title: "Final Project Spring 2022: Part 3(D)"
+author: "Qinnuo Li, Di Zhang"
+date: "4/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+```
+
+## Read Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+```
+
+# Project Part 3: Classification
+
+# 3.6 Train models from simple to complex
+
+```{r, prep_data}
+dfii <- df_all %>% 
+  mutate(y = log(response)) %>% 
+  select(region, customer, starts_with('x'), y)
+
+dfiii <- df_all %>% 
+  select(-rowid, -response) %>%
+  mutate(y = ifelse(outcome == "event", 1, 0))
+```
+
+```{r, read_models}
+pt2B_mod03 <- readr::read_rds('mod03.rds')
+pt2B_mod8 <- readr::read_rds('mod08.rds')
+
+Xmat_mod03 <- readr::read_rds('Xmat_mod03.rds')
+Xmat_mod08 <- readr::read_rds('Xmat_mod08.rds')
+pt3B_mod03 <- readr::read_rds('laplace_mod03.rds')
+pt3B_mod08 <- readr::read_rds('laplace_mod08.rds')
+```
+
+Specify train control and performance metrics:
+```{r, train_control_and_metric}
+trainCtrl_5cv <- trainControl(method = "cv",
+                              number = 5,
+                              summaryFunction = twoClassSummary,
+                              classProbs = TRUE,
+                              savePredictions = TRUE)
+
+metric_roc <- "ROC"
+metric_acc <- "Accuracy"
+```
+
+Train GLM with linear additive terms using all categorical and continuous variables:
+```{r, train_pt3_mod01, eval=TRUE}
+set.seed(1983)
+pt3_mod01 <- train(outcome ~ .,
+                   data = dfiii %>% select(-y),
+                   method = "glm",
+                   family = binomial(),
+                   metric = metric_roc,
+                   preProcess = c("center", "scale"),
+                   trControl = trainCtrl_5cv)
+
+pt3_mod01 %>% readr::write_rds('pt3_mod01.rds')
+```
+
+Train GLM with all pairwise interactions of continuous inputs, include additive categorical features:
+```{r, train_pt3_mod02, eval=TRUE}
+set.seed(1983)
+pt3_mod02 <- train(outcome ~ (.)^2 + region + customer,
+                   data = dfiii %>% select(-y),
+                   method = "glm",
+                   family = binomial(),
+                   metric = metric_roc,
+                   preProcess = c("nzv", "center", "scale"),
+                   trControl = trainCtrl_5cv)
+
+pt3_mod02 %>% readr::write_rds('pt3_mod02.rds')
+```
+
+Train GLM with sine wave of continuous inputs from `xn`:
+```{r, train_pt3_mod03, eval=TRUE}
+set.seed(1983)
+pt3_mod03 <- train(outcome ~ sin(xn_01) + sin(xn_02) + sin(xn_03) + sin(xn_04) + sin(xn_05) + sin(xn_06) + sin(xn_07) + sin(xn_08),
+                   data = dfiii %>% select(-y),
+                   method = "glm",
+                   family = binomial(),
+                   metric = metric_roc,
+                   preProcess = c("nzv", "center", "scale"),
+                   trControl = trainCtrl_5cv)
+
+pt3_mod03 %>% readr::write_rds('pt3_mod03.rds')
+```
+
+The other model selected from iiiA) is the same as the `pt3_mod01`, therefore I'll pick `glm_mod02` from iiiA), the second best model identified in iiiA), a linear model with linear additive terms using continuous variables only:
+```{r, train_pt3_mod04, eval=TRUE}
+set.seed(1983)
+pt3_mod04 <- train(outcome ~ (.),
+                   data = dfiii %>% select(-region, -customer, -y),
+                   method = "glm",
+                   family = binomial(),
+                   metric = metric_roc,
+                   preProcess = c("nzv", "center", "scale"),
+                   trControl = trainCtrl_5cv)
+
+pt3_mod04 %>% readr::write_rds('pt3_mod04.rds')
+```
+
+Train regularized logistical regression with elastic net:
+```{r, train_pt3_mod05, eval=TRUE}
+set.seed(1983)
+pt3_mod05 <- train(outcome ~ sin(xn_01) + sin(xn_02) + sin(xn_03) + sin(xn_04) + sin(xn_05) + sin(xn_06) + sin(xn_07) + sin(xn_08),
+                   data = dfiii,
+                   method = "glmnet",
+                   metric = metric_roc,
+                   preProcess = c("nzv", "center", "scale"),
+                   trControl = trainCtrl_5cv)
+
+pt3_mod05 %>% readr::write_rds('pt3_mod05.rds')
+```
+
+```{r, train_pt3_mod06, eval=TRUE}
+set.seed(1983)
+pt3_mod06 <- train(outcome ~ region * (.),
+                   data = dfiii %>% select(-y, customer),
+                   method = "glmnet",
+                   metric = metric_roc,
+                   preProcess = c("nzv", "center", "scale"),
+                   trControl = trainCtrl_5cv)
+
+pt3_mod06 %>% readr::write_rds('pt3_mod06.rds')
+```
+
+Train neural network:
+```{r, train_pt3_mod07, eval=TRUE}
+set.seed(1983)
+pt3_mod07 <- train(outcome ~ .,
+                   data = dfiii %>% select(-y),
+                   method = "nnet",
+                   metric = metric_roc,
+                   preProcess = c("nzv", "center", "scale"),
+                   trControl = trainCtrl_5cv,
+                   trace = FALSE)
+
+pt3_mod07 %>% readr::write_rds('pt3_mod07.rds')
+```
+
+Train random forest:
+```{r, train_pt3_mod08, eval=TRUE}
+set.seed(1983)
+pt3_mod08 <- train(outcome ~ .,
+                   data = dfiii %>% select(-y),
+                   method = "rf",
+                   metric = metric_roc,
+                   trControl = trainCtrl_5cv,
+                   importance = TRUE)
+
+pt3_mod08 %>% readr::write_rds('pt3_mod08.rds')
+```
+
+Train gradient boosted tree:
+Train random forest:
+```{r, train_pt3_mod08, eval=TRUE}
+set.seed(1983)
+pt3_mod09 <- train(outcome ~ .,
+                   data = dfiii %>% select(-y),
+                   method = "xgbTree",
+                   metric = metric_roc,
+                   trControl = trainCtrl_5cv)
+
+pt3_mod09 %>% readr::write_rds('pt3_mod09.rds')
+```
+
+Compile re-sampling results of all models:
+```{r}
+results = resamples(list(fit_01 = pt3_mod01,
+                         fit_02 = pt3_mod02,
+                         fit_03 = pt3_mod03,
+                         fit_04 = pt3_mod04,
+                         fit_05 = pt3_mod05,
+                         fit_06 = pt3_mod06,
+                         fit_07 = pt3_mod07,
+                         fit_08 = pt3_mod08))
+dotplot(results)
+```
+

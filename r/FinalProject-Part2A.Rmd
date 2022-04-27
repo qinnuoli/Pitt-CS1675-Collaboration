@@ -70,56 +70,56 @@ xb_04 and xb_05 are involved in a few high correlation with other variables but 
 We use `lm()` to train the following different linear models:
 
 i) A linear model with linear additive terms using categorical variables only
-```{r, train_mod01, eval=TRUE}
+```{r, fit_mod01, eval=TRUE}
 mod01 <- lm(y ~ region + customer, data = dfii)
 mod01 %>% readr::write_rds('mod01.rds')
 ```
 
 ii) A linear model with linear additive terms using continuous variables only
-```{r, train_mod02, eval=TRUE}
+```{r, fit_mod02, eval=TRUE}
 mod02 <- lm(y ~ (.), data = dfii %>% select(-region, -customer))
 mod02 %>% readr::write_rds('mod02.rds')
 ```
 
 iii) A linear model with linear additive terms using all categorical and continuous variables
-```{r, train_mod03, eval=TRUE}
+```{r, fit_mod03, eval=TRUE}
 mod03 <- lm(y ~ (.), data = dfii)
 mod03 %>% readr::write_rds('mod03.rds')
 ```
 
 iv) A linear model that interacts `region` with continuous inputs (`customer` excluded)
-```{r, train_mod04, eval=TRUE}
+```{r, fit_mod04, eval=TRUE}
 mod04 <- lm(y ~ region * (.), data = dfii %>% select(-customer))
 mod04 %>% readr::write_rds('mod04.rds')
 ```
 
 v) A linear model that interacts `customer` with continuous inputs (`region` excluded)
-```{r, train_mod05, eval=TRUE}
+```{r, fit_mod05, eval=TRUE}
 mod05 <- lm(y ~ customer * (.), data = dfii %>% select(-region))
 mod05 %>% write_rds('mod05.rds')
 ```
 
 vi) A linear model with all pairwise interaction between continuous inputs (categorical inputs excluded)
-```{r, train_mod06, eval=TRUE}
+```{r, fit_mod06, eval=TRUE}
 mod06 <- lm(y ~ (.)^2, data = dfii %>% select(-region, -customer))
 mod06 %>% write_rds('mod06.rds')
 ```
 
 vii) Basis choice of 1: a linear model using interaction between quadratic terms of continuous input `xw` and categorical input `customer`.
 
-```{r, lm_mod07}
+```{r, fit_mod07}
 mod07 <- lm(y ~ as.factor(customer) * (I(xw_01^2) + I(xw_02)^2 + I(xw_03)^2), data = dfii %>% select(-region))
 mod07 %>% write_rds('mod07.rds')
 ```
 
 viii) Basis choice of 2: a linear model using sine wave of `xa`.
-```{r, lm_mod08}
+```{r, fit_mod08}
 mod08 <- lm(y ~ sin(xa_01) + sin(xa_02) + sin(xa_03) + sin(xa_04) + sin(xa_05) + sin(xa_06) + sin(xa_07) + sin(xa_08), data = dfii)
 mod08 %>% write_rds('mod08.rds')
 ```
 
 ix) Basis of choice 3: a linear model using additive natural splines terms of `xs`, with degree of freedom of 2 for each.
-```{r, lm_mod09}
+```{r, fit_mod09}
 mod09 <- lm(y ~ splines::ns(xs_01, 2) + splines::ns(xs_02, 2) + splines::ns(xs_03, 2) + 
                      splines::ns(xs_04, 2) + splines::ns(xs_05, 2) + splines::ns(xs_06, 2),
             data = dfii)
