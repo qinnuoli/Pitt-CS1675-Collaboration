@@ -72,50 +72,42 @@ We use `lm()` to train the following different linear models:
 i) A linear model with linear additive terms using categorical variables only
 ```{r, train_mod01, eval=TRUE}
 mod01 <- lm(y ~ region + customer, data = dfii)
-mod01 %>% readr::write_rds('mod01.rds')
 ```
 
 ii) A linear model with linear additive terms using continuous variables only
 ```{r, train_mod02, eval=TRUE}
 mod02 <- lm(y ~ (.), data = dfii %>% select(-region, -customer))
-mod02 %>% readr::write_rds('mod02.rds')
 ```
 
 iii) A linear model with linear additive terms using all categorical and continuous variables
 ```{r, train_mod03, eval=TRUE}
 mod03 <- lm(y ~ (.), data = dfii)
-mod03 %>% readr::write_rds('mod03.rds')
 ```
 
 iv) A linear model that interacts `region` with continuous inputs (`customer` excluded)
 ```{r, train_mod04, eval=TRUE}
 mod04 <- lm(y ~ region * (.), data = dfii %>% select(-customer))
-mod04 %>% readr::write_rds('mod04.rds')
 ```
 
 v) A linear model that interacts `customer` with continuous inputs (`region` excluded)
 ```{r, train_mod05, eval=TRUE}
 mod05 <- lm(y ~ customer * (.), data = dfii %>% select(-region))
-mod05 %>% write_rds('mod05.rds')
 ```
 
 vi) A linear model with all pairwise interaction between continuous inputs (categorical inputs excluded)
 ```{r, train_mod06, eval=TRUE}
 mod06 <- lm(y ~ (.)^2, data = dfii %>% select(-region, -customer))
-mod06 %>% write_rds('mod06.rds')
 ```
 
 vii) Basis choice of 1: a linear model using interaction between quadratic terms of continuous input `xw` and categorical input `customer`.
 
 ```{r, lm_mod07}
 mod07 <- lm(y ~ as.factor(customer) * (I(xw_01^2) + I(xw_02)^2 + I(xw_03)^2), data = dfii %>% select(-region))
-mod07 %>% write_rds('mod07.rds')
 ```
 
 viii) Basis choice of 2: a linear model using sine wave of `xa`.
 ```{r, lm_mod08}
 mod08 <- lm(y ~ sin(xa_01) + sin(xa_02) + sin(xa_03) + sin(xa_04) + sin(xa_05) + sin(xa_06) + sin(xa_07) + sin(xa_08), data = dfii)
-mod08 %>% write_rds('mod08.rds')
 ```
 
 ix) Basis of choice 3: a linear model using additive natural splines terms of `xs`, with degree of freedom of 2 for each.
@@ -123,7 +115,6 @@ ix) Basis of choice 3: a linear model using additive natural splines terms of `x
 mod09 <- lm(y ~ splines::ns(xs_01, 2) + splines::ns(xs_02, 2) + splines::ns(xs_03, 2) + 
                      splines::ns(xs_04, 2) + splines::ns(xs_05, 2) + splines::ns(xs_06, 2),
             data = dfii)
-mod09 %>% write_rds('mod09.rds')
 ```
 
 
@@ -155,7 +146,7 @@ From the visualization, we pick the regression models with the lowest AIC and BI
 # Coefficient Visualization
 We plot the coefficient summaries for the top 3 models.
 
-```{r}
+```{r, coef_viz}
 mod02 %>% coefplot::coefplot() +
   theme_bw() +
   theme(legend.position = 'none')
@@ -169,3 +160,7 @@ mod04 %>% coefplot::coefplot() +
 
 From the visualization, we determine that out of the top three models, most of the predictors in model 4 overlap with 0 For the other two models, `xn_8`, `xb_8`, `xb_7` and `xb_4` are significant predictors in both. Additionally, in model 3, Consumer K, Q as well as both regions appear to be significant predictors.
 
+```{r, save_models}
+mod03 %>% readr::write_rds('lm_mod03.rds')
+mod04 %>% readr::write_rds('lm_mod04.rds')
+```

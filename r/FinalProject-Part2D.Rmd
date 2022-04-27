@@ -1,0 +1,169 @@
+---
+title: 'Final Project Spring 2022: Part 2D'
+author: "Di Zhang"
+date: '2022-04-27'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+library(caret)
+```
+
+## Read and Prep Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+dfii <- df_all %>% 
+  mutate(y = log(response)) %>% 
+  select(region, customer, starts_with('x'), y)
+```
+
+# Project Part 2: Regression
+
+# 2.8 Resampling with Complex Models
+
+Define training control. We use 5-fold cross-validation that repeats 5 times. Our main performance metric would be `RMSE`.
+```{r}
+my_ctrl <- trainControl(method = 'repeatedcv', number = 5, repeats = 5)
+
+my_metric <- "RMSE"
+```
+
+```{r}
+set.seed(4321)
+lm_mod01 <- train(y ~ (.),
+                      data = dfii,
+                      method = 'lm',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+```{r}
+set.seed(4321)
+lm_mod02 <- train(y ~ (.)^2,
+                      data = dfii,
+                      method = 'lm',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+```{r}
+set.seed(4321)
+lm_mod04 <- train(y ~ region * (.),
+                      data = dfii %>% select(-customer),
+                      method = 'lm',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+```{r}
+set.seed(4321)
+lm_mod03 <- train(y ~ (.),
+                      data = dfii %>% select(-region, -customer),
+                      method = 'lm',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+
+```{r}
+set.seed(4321)
+enet_mod01 <- train(y ~ (.),
+                      data = dfii,
+                      method = 'enet',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+```{r}
+set.seed(4321)
+enet_mod02 <- train(y ~ sin(xa_01) + sin(xa_02) + sin(xa_03) + sin(xa_04) + sin(xa_05) + sin(xa_06) + sin(xa_07) + sin(xa_08),
+                      data = dfii %>% select(-region, -customer),
+                      method = 'enet',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+```{r}
+set.seed(4321)
+enet_mod03 <- train(y ~ as.factor(customer) * (I(xw_01^2) + I(xw_02)^2 + I(xw_03)^2),
+                      data = dfii %>% select(-region),
+                      method = 'enet',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl)
+```
+
+```{r}
+nnet_default <- train(y ~ (.),
+                      data = dfii,
+                      method = 'nnet',
+                      metric = my_metric,
+                      preProcess = c("center", "scale"),
+                      trControl = my_ctrl,
+                      trace = FALSE)
+```
+
+
+
+```{r}
+set.seed(4321)
+rf_mod <- train(y ~ (.),
+                      data = dfii,
+                      method = 'rf',
+                      metric = my_metric,
+                      trControl = my_ctrl,
+                      importance = TRUE)
+```
+
+```{r}
+gbTree_default <- train(y ~ (.),
+                      data = dfii,
+                      method = 'xgbTree',
+                      metric = my_metric,
+                      trControl = my_ctrl)
+```
+
+```{r}
+model_compare <- resamples(list(LM1 = lm_mod01,
+                               LM2 = lm_mod02,
+                               LM3 = lm_mod03,
+                               LM4 = lm_mod04,
+                               ENET1 = enet_mod01,
+                               ENET2 = enet_mod02,
+                               ENET3 = enet_mod03,
+                               NNET = nnet_default,
+                               RF = rf_mod,
+                               XGBT = gbTree_default))
+
+dotplot(model_compare)
+```
+
+The second linear model, which is also the worst performing model, is interfering with the plot visualization. We will prioritize the visualization of posterior prediction of other models.
+```{r}
+model_compare <- resamples(list(LM1 = lm_mod01,
+                               LM3 = lm_mod03,
+                               LM4 = lm_mod04,
+                               ENET1 = enet_mod01,
+                               ENET2 = enet_mod02,
+                               ENET3 = enet_mod03,
+                               NNET = nnet_default,
+                               RF = rf_mod,
+                               XGBT = gbTree_default))
+
+dotplot(model_compare)
+```
+From the results above, we could determine that Gradient Boosted Tree model is the best performing model with lowest RMSE.
