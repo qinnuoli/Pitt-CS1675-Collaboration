@@ -16,9 +16,7 @@ Under construction.
 
 ```{r, load_packages}
 library(tidyverse)
-library(visdat)
 library(corrplot)
-library(caret)
 library(rstanarm)
 ```
 
@@ -52,90 +50,167 @@ mod03 <- readr::read_rds('mod03.rds')
 mod04 <- readr::read_rds('mod04.rds')
 ```
 
-## Generate design matrices
-```{r}
-mod3_grid <- model.matrix(y ~ (.), data = dfii)
-mod4_grid <- model.matrix(y ~ region * (.), data = dfii %>% select(-customer))
+# 2.5 Model Fitting`
+
+Create matrices
+```{r, mod_mat}
+Xmat_lm_mod03 <- model.matrix(y ~ (.),
+                           data = dfii)
+Xmat_lm_mod04 <- model.matrix(y ~ region * (.),
+                           data = dfii %>% select(-customer))
+
+Xmat_lm_mod03 %>% readr::write_rds('Xmat_mod03.rds')
+Xmat_lm_mod04 %>% readr::write_rds('Xmat_mod04.rds')
 ```
 
-i) Model 3: A linear model with linear additive terms using all categorical and continuous variables
+Create lists of information for two models to be fitted. We specify a prior mean of 0, prior standard deviation of 5 and sigma rate of 1.
+```{r, info_lists}
+info_mod03 <- list(
+  yobs = dfii$y,
+  design_matrix = Xmat_lm_mod03,
+  mu_beta = 0,
+  tau_beta = 5,
+  sigma_rate = 1
+)
+
+info_mod04 <- list(
+  yobs = dfii$y,
+  design_matrix = Xmat_lm_mod04,
+  mu_beta = 0,
+  tau_beta = 5,
+  sigma_rate = 1
+)
+```
+
+Define log-posterior function the linear regression.
+```{r, log_post_func, eval=TRUE}
+lm_logpost <- function(unknowns, my_info)
+{
+  # specify the number of unknown beta parameters
+  length_beta <- ncol(my_info$design_matrix)
+  
+  # extract the beta parameters from the `unknowns` vector
+  beta_v <- unknowns[1:length_beta]
+  
+  # extract the unbounded noise parameter, varphi
+  lik_varphi <- unknowns[length_beta + 1]
+  
+  # back-transform from varphi to sigma
+  lik_sigma <- exp(lik_varphi)
+  
+  # extract design matrix
+  X <- my_info$design_matrix
+  
+  # calculate the linear predictor
+  mu <- as.vector(X %*% as.matrix(beta_v))
+  
+  # evaluate the log-likelihood
+  log_lik <- sum(dnorm(x = my_info$yobs,
+                       mean = mu,
+                       sd = lik_sigma,
+                       log = TRUE))
+  
+  # evaluate the log-prior
+  log_prior_beta <- sum(dnorm(x = beta_v,
+                              mean = my_info$mu_beta,
+                              sd = my_info$tau_beta,
+                              log = TRUE)) 
+  
+  log_prior_sigma <- dexp(x = lik_sigma,
+                          rate = my_info$sigma_rate,
+                          log = TRUE)
+  
+  # add the mean trend prior and noise prior together
+  log_prior <- log_prior_beta + log_prior_sigma
+  
+  # account for the transformation
+  log_derive_adjust <- lik_varphi
+  
+  # sum together
+  log_lik + log_prior + log_derive_adjust
+}
+```
+
+Define Laplace Approximation function.
+```{r, define_laplace_func, eval=TRUE}
+my_laplace <- function(start_guess, logpost_func, ...)
+{
+  # code adapted from the `LearnBayes`` function `laplace()`
+  fit <- optim(start_guess,
+               logpost_func,
+               gr = NULL,
+               ...,
+               method = "BFGS",
+               hessian = TRUE,
+               control = list(fnscale = -1, maxit = 1001))
+  
+  mode <- fit$par
+  post_var_matrix <- -solve(fit$hessian)
+  p <- length(mode)
+  int <- p/2 * log(2 * pi) + 0.5 * log(det(post_var_matrix)) + logpost_func(mode, ...)
+  # package all of the results into a list
+  list(mode = mode,
+       var_matrix = post_var_matrix,
+       log_evidence = int,
+       converge = ifelse(fit$convergence == 0,
+                         "YES", 
+                         "NO"),
+       iter_counts = as.numeric(fit$counts[1]))
+}
+```
+
+
+Fitting two models.
 ```{r, fit_mod3_01}
-mod3_fit <- stan_lm(y ~ (.), data = dfii,
-                  prior = R2(location = 0.5),
-                  seed = 4321)
+laplace_lm_mod03 <- my_laplace(rep(0, ncol(Xmat_lm_mod03)+1),lm_logpost, info_mod03)
+laplace_lm_mod03 %>% readr::write_rds('laplace_lm_mod03.rds')
+laplace_lm_mod04 <- my_laplace(rep(0, ncol(Xmat_lm_mod04)+1),lm_logpost, info_mod04)
+laplace_lm_mod04 %>% readr::write_rds('laplace_lm_mod04.rds')
 ```
 
-```{r, fit_mod3_02}
-mod3_fit %>% summary()
-plot(mod3_fit, pars = names(mod3_fit$coefficients)) +
-  geom_vline(xintercept = 0, color = "red", linetype = "dashed", size = 1, alpha = 0.5) +
-  theme_bw()
-```
-The significance of the predictors largely overlap with what we already saw in iiA. All regions, 
+Compare the performance of two fitted models by evidence/weights.
+```{r, calc_compare_evidence}
+evid_lm_mod03 <- exp(laplace_lm_mod03$log_evidence)
+evid_lm_mod04 <- exp(laplace_lm_mod04$log_evidence)
 
-## Posterior distribution of coefficients
-```{r, fit_mod3_post_coeff}
-as.data.frame(mod3_fit) %>% tibble::as_tibble() %>% 
-  select(all_of(names(mod3_fit$coefficients))) %>% 
-  tibble::rowid_to_column("post_id") %>% 
-  pivot_longer(!c("post_id")) %>% 
-  ggplot(mapping = aes(x = value)) +
-  geom_histogram(bins = 55) +
-  facet_wrap(~name, scales = "free") +
-  theme_bw() +
-  theme(axis.text.y = element_blank())
-```
-All of the coefficients posterior distributions are affirmed to be Gaussian.
+weight_lm_mod03 <- evid_lm_mod03 / sum(evid_lm_mod03, evid_lm_mod04)
+weight_lm_mod04 <- evid_lm_mod04 / sum(evid_lm_mod03, evid_lm_mod04)
 
-
-ii) Model 4: A linear model that interacts `region` with continuous inputs (`customer` excluded)
-```{r, fit_mod4_01}
-mod4_fit <- stan_lm(y ~ region * (.), data = dfii %>% select(-customer),
-                  prior = R2(location = 0.5),
-                  seed = 5432)
+weight_lm_mod03
+weight_lm_mod04
 ```
 
-```{r, fit_mod4_02}
-mod4_fit %>% summary()
-plot(mod4_fit, pars = names(mod4_a$coefficients)) +
-  geom_vline(xintercept = 0, color = "red", linetype = "dashed", size = 1, alpha = 0.5) +
-  theme_bw()
+From the posterior model weights results above, the best linear regression model between the two is model 3.
+
+We define a function to visualize posterior coefficients summary.
+```{r, visual_post_coefs_func}
+viz_post_coefs <- function(post_means, post_sds, xnames)
+{
+  tibble::tibble(
+    mu = post_means,
+    sd = post_sds,
+    x = xnames
+  ) %>% 
+    mutate(x = factor(x, levels = xnames)) %>% 
+    ggplot(mapping = aes(x = x)) +
+    geom_hline(yintercept = 0, color = 'grey', linetype = 'dashed') +
+    geom_point(mapping = aes(y = mu)) +
+    geom_linerange(mapping = aes(ymin = mu - 2 * sd,
+                                 ymax = mu + 2 * sd,
+                                 group = x)) +
+    labs(x = 'feature', y = 'coefficient value') +
+    coord_flip() +
+    theme_bw()
+}
 ```
 
-## Model selection
-We use RMSE (represented by posterior $\sigma$) as the metric to assess the performance of training set on two fitted models.
-
-```{r, mod_select_01}
-purrr::map2_dfr(list(mod3_fit, mod4_fit),
-                as.character(1:2),
-                function(mod, mod_name){tibble::tibble(rsquared = bayes_R2(mod)) %>% 
-                    mutate(model_name = mod_name)}) %>% 
-  ggplot(mapping = aes(x = rsquared)) +
-  geom_freqpoly(bins = 55,
-                 mapping = aes(color = model_name),
-                 size = 1.1) +
-  coord_cartesian(xlim = c(0, 1)) +
-  ggthemes::scale_color_colorblind("Model") +
-  theme_bw()
+```{r, post_coefs_visual}
+viz_post_coefs(laplace_lm_mod03$mode[1:ncol(Xmat_lm_mod03)],
+               sqrt(diag(laplace_lm_mod03$var_matrix)[1:ncol(Xmat_lm_mod03)]),
+               colnames(Xmat_lm_mod03))
 ```
 
-```{r, mod_select_02}
-purrr::map2_dfr(list(mod3_fit, mod4_fit),
-                as.character(1:2),
-                function(mod, mod_name){as.data.frame(mod) %>% tibble::as_tibble() %>% 
-                    select(sigma) %>% 
-                    mutate(model_name = mod_name)}) %>% 
-  ggplot(mapping = aes(x = sigma)) +
-  geom_freqpoly(bins = 55,
-                 mapping = aes(color = model_name),
-                 size = 1.1) +
-  ggthemes::scale_color_colorblind("Model") +
-  theme_bw()
-```
-
-
-
-## Posterior correlation between coefficients
+We then visualize posterior coefficients correlation.
 ```{r, fit_mod3_posterior_cor}
 as.data.frame(mod3_fit) %>% tibble::as_tibble() %>% 
   select(all_of(names(mod3_a$coefficients))) %>% 
@@ -144,3 +219,20 @@ as.data.frame(mod3_fit) %>% tibble::as_tibble() %>%
                      order = "hclust", hclust.method = 'ward.D2')
 ```
 We generate hierarchical clustered correlation plot for the inputs and found that aside from medium correlation between the customers as well as a few notable negative correlations between variables within the `xs`, `xa` and `xb` categories, all features are relatively independent of each other.
+
+We calculate posterior mean and uncertainty at each feature input.
+```{r, post_mean_uncertainty}
+tibble::tibble(
+  post_mean = laplace_lm_mod04$mode,
+  post_sd = sqrt(diag(laplace_lm_mod04$var_matrix))
+  ) %>%
+  tibble::rowid_to_column("beta_number") %>% 
+  mutate(beta_id = beta_number - 1,
+         post_lwr = post_mean - 2*post_sd,
+         post_upr = post_mean + 2*post_sd) %>% 
+  select(beta_id, post_mean, post_lwr, post_upr) %>%
+  ggplot(mapping = aes(x = beta_id)) +
+  geom_ribbon(mapping = aes(ymin = post_lwr, ymax = post_upr), fill='orange') +
+  geom_line(mapping = aes(y = post_mean)) +
+  theme_bw()
+```
