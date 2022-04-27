@@ -1,0 +1,165 @@
+---
+title: "Final Project Spring 2022: Part 3(A)"
+author: "Qinnuo Li, Di Zhang"
+date: "3/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+library(visdat)
+library(corrplot)
+library(caret)
+library(yardstick)
+```
+
+* `tidyverse` suite of packages is used throughout the entire project.  
+* `visdat` is used in Part 1 to visually check for the missing values in the data frame. 
+* `corrplot` is used to create correlation plot, to visualize the relationship between continuous inputs.  
+* `caret` is used to train and access performance of models.  
+* `yardstick` is used to help visualize the ROC curve.  
+
+## Read Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+```
+
+# Project Part 3: Classification
+
+# 3.1 Prepare data for part 3
+
+Part 3 is a classification problem, and the output of interest is a binary `outcome` with values `event` and `non-event`. `event` represents the product did not meet its sales goal. However, our models don't directly predict the binary outcome, instead we work with the event probability as a function of inputs.
+
+The data set used in part 3, therefore, will not contain the continuous output `response`. We are also removing the `rowid` since it won't be used as part of the training process. We will also add another column of `y` to indicate `event` as 1 and `non-event` as 0.   
+
+```{r, prep_data}
+dfiii <- df_all %>% 
+  select(-rowid, -response) %>%
+  mutate(y = ifelse(outcome == "event", 1, 0))
+```
+
+Use the `count()` remind us the number of observations associated with each binary class.  
+
+```{r, count_obs}
+dfiii %>% count(y, outcome)
+```
+
+# 3.2 Train linear models
+
+We use `glm()` to fit the following logistical regression models via maximum likelihood estimation as our non-Bayesian approach:  
+
+i) A linear model with linear additive terms using categorical variables only
+```{r, glm_mod01}
+glm_mod01 <- glm(y ~ region + customer,
+                 family = "binomial",
+                 data = dfiii %>% select(-outcome))
+glm_mod01 %>% readr::write_rds('glm_mod01.rds')
+```
+
+ii) A linear model with linear additive terms using continuous variables only
+```{r, glm_mod02}
+glm_mod02 <- glm(y ~ (.),
+                 family = "binomial",
+                 data = dfiii %>% select(-region, -customer, -outcome))
+glm_mod02 %>% readr::write_rds('glm_mod02.rds')
+```
+
+iii) A linear model with linear additive terms using all categorical and continuous variables
+```{r, glm_mod03}
+glm_mod03 <- glm(y ~ (.),
+                 family = "binomial",
+                 data = dfiii %>% select(-outcome))
+glm_mod03 %>% readr::write_rds('glm_mod03.rds')
+```
+
+iv) A linear model that interacts `region` with continuous inputs (`customer` excluded)
+```{r, glm_mod04}
+glm_mod04 <- glm(y ~ region * (.),
+                 family = "binomial",
+                 data = dfiii %>% select(-customer, -outcome))
+glm_mod04 %>% readr::write_rds('glm_mod04.rds')
+```
+
+v) A linear model that interacts `customer` with continuous inputs (`region` excluded)
+```{r, glm_mod05}
+glm_mod05 <- glm(y ~ customer * (.),
+                 family = "binomial",
+                 data = dfiii %>% select(-region, -outcome))
+glm_mod05 %>% readr::write_rds('glm_mod05.rds')
+```
+vi) A linear model with all pairwise interaction between continuous inputs (categorical inputs excluded)
+```{r, glm_mod06}
+glm_mod06 <- glm(y ~ (.)^2,
+                 family = "binomial",
+                 data = dfiii %>% select(-region, -customer, -outcome))
+glm_mod06 %>% readr::write_rds('glm_mod06.rds')
+```
+
+vii) Basis of choice 1: A model with quadratic terms using the continuous inputs from `xw` with interactions of `region``.  
+```{r, glm_mod07}
+glm_mod07 <- glm(y ~ region * (I(xw_01^2) + I(xw_02^2) + I(xw_03^2)),
+                 family = "binomial",
+                 data = dfiii %>% select(-outcome))
+glm_mod07 %>% readr::write_rds('glm_mod07.rds')
+```
+
+viii) Basis of choice 2: sine wave of continuous inputs from `xn`.
+```{r, glm_mod08}
+glm_mod08 <- glm(y ~ sin(xn_01) + sin(xn_02) + sin(xn_03) + sin(xn_04) + sin(xn_05) + sin(xn_06) + sin(xn_07) + sin(xn_08),
+                 family = "binomial",
+                 data = dfiii %>% select(-outcome))
+glm_mod08 %>% readr::write_rds('glm_mod08.rds')
+```
+
+ix) Basis of choice 3: additive natural splines terms of `xs`, with degree of freedom of 2 for each.  
+```{r, glm_mod09}
+glm_mod09 <- glm(y ~ splines::ns(xs_01, 2) + splines::ns(xs_02, 2) + splines::ns(xs_03, 2) + 
+                     splines::ns(xs_04, 2) + splines::ns(xs_05, 2) + splines::ns(xs_06, 2),
+                 family = "binomial",
+                 data = dfiii %>% select(-outcome))
+glm_mod09 %>% readr::write_rds('glm_mod09.rds')
+```
+
+# Compare the performance for all 9 models
+
+```{r}
+data.frame(glm_mod01 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod02 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod03 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod04 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod05 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod06 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod07 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod08 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  bind_rows(glm_mod09 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
+  mutate(mod = c("glm_mod01", "glm_mod02", "glm_mod03", "glm_mod04", "glm_mod05", "glm_mod06", "glm_mod07", "glm_mod08", "glm_mod09"))
+```
+
+# Pick top 3 models out of the 9
+
+# Visualize the coefficient summaries and rank input importance
+
+```{r}
+coefplot::coefplot(glm_mod02)
+coefplot::coefplot(glm_mod03)
+coefplot::coefplot(glm_mod08)
+```
+
+
+```{r, train_control_and_metric}
+trainCtrl_5cv <- trainControl(method = "cv",
+                              number = 5,
+                              summaryFunction = twoClassSummary,
+                              classProbs = TRUE,
+                              savePredictions = TRUE,)
+
+metric_roc <- "ROC"
+```
+
