@@ -105,33 +105,32 @@ mod06 <- lm(y ~ (.)^2, data = dfii %>% select(-region, -customer))
 mod06 %>% write_rds('mod06.rds')
 ```
 
-vii) Basis 1: a linear model with natural splines of interaction between continuous inputs as basis with degree of freedom of 8
-```{r, train_mod07, eval=TRUE}
-mod07 <- lm(y ~ splines::ns(), data = dfii %>% select(-region, -customer))
+vii) Basis choice of 1: a linear model using interaction between quadratic terms of continuous input `xw` and categorical input `customer`.
+
+```{r, lm_mod07}
+mod07 <- lm(y ~ as.factor(customer) * (I(xw_01^2) + I(xw_02)^2 + I(xw_03)^2), data = dfii %>% select(-region))
 mod07 %>% write_rds('mod07.rds')
 ```
 
-viii) Basis 2: a linear model using sine function as basis (categorical inputs excluded)
-```{r}
-mod08 <- lm(y ~ sin(), data = dfii %>% select(-region, -customer))
+viii) Basis choice of 2: a linear model using sine wave of `xa`.
+```{r, lm_mod08}
+mod08 <- lm(y ~ sin(xa_01) + sin(xa_02) + sin(xa_03) + sin(xa_04) + sin(xa_05) + sin(xa_06) + sin(xa_07) + sin(xa_08), data = dfii)
+mod08 %>% write_rds('mod08.rds')
 ```
 
-ix) Basis of choice 3: a linear model using cosine function as basis (categorical inputs excluded)
-```{r}
-
+ix) Basis of choice 3: a linear model using additive natural splines terms of `xs`, with degree of freedom of 2 for each.
+```{r, lm_mod09}
+mod09 <- lm(y ~ splines::ns(xs_01, 2) + splines::ns(xs_02, 2) + splines::ns(xs_03, 2) + 
+                     splines::ns(xs_04, 2) + splines::ns(xs_05, 2) + splines::ns(xs_06, 2),
+            data = dfii)
+mod09 %>% write_rds('mod09.rds')
 ```
 
-# Training Models and Initial Evaluations
-
-# Load test data
-```{r}
-# [WIP]
-```
 
 # Identifying best performing model
 
+We define a wrapper function around `broom::glance()` to include names of the model with perforamnce metrics, which is applied to each linear model and compile results into a dataframe for comparison. These code chunks are adapted from homework 8.
 ```{r}
-# Adopted from homework 8 1h)
 extract_metrics <- function(mod, mod_name)
 {
   broom::glance(mod) %>% mutate(mod_name = mod_name)
@@ -139,12 +138,11 @@ extract_metrics <- function(mod, mod_name)
 ```
 
 ```{r}
-# Adopted from homework 8 1h)
-all_metrics <- purrr::map2_dfr(list(mod01, mod02, mod03, mod04, mod05, mod06),
-                               as.character(1:6),
+all_linear_metrics <- purrr::map2_dfr(list(mod01, mod02, mod03, mod04, mod05, mod06, mod07, mod08, mod09),
+                               as.character(1:9),
                                extract_metrics)
-all_metrics %>% 
-  select(mod_name, df, r.squared, AIC, BIC) %>% 
+all_linear_metrics %>% 
+  select(mod_name, df, logLik, AIC, BIC, deviance) %>% 
   pivot_longer(!c("mod_name", "df")) %>% 
   ggplot(mapping = aes(x = mod_name, y = value)) +
   geom_point(size = 5) +
@@ -152,16 +150,21 @@ all_metrics %>%
   theme_bw()
 ```
 
-# Coefficient Visualization
+From the visualization, we pick the regression models with the lowest AIC and BIC, low deviance and high logLik: model 2, 3, 4. We chose model 2 for its low BIC despite a rather high deviance and low logLik.
 
-```{r, eval=FALSE}
-mod0 %>% coefplot::coefplot() +
+# Coefficient Visualization
+We plot the coefficient summaries for the top 3 models.
+
+```{r}
+mod02 %>% coefplot::coefplot() +
+  theme_bw() +
+  theme(legend.position = 'none')
+mod03 %>% coefplot::coefplot() +
+  theme_bw() +
+  theme(legend.position = 'none')
+mod04 %>% coefplot::coefplot() +
   theme_bw() +
   theme(legend.position = 'none')
 ```
 
-# Fitting Two Models
-
-# i)
-
-# ii)
+From the visualization, we determine that out of the top three models, most of the predictors in model 4 overlap with 0 For the other two models, `xn_8`, `xb_8`, `xb_7` and `xb_4` are significant predictors in both. Additionally, in model 3, Consumer K, Q as well as both regions appear to be significant predictors.
