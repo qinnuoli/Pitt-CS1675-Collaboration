@@ -127,7 +127,7 @@ mod09 %>% write_rds('mod09.rds')
 ```
 
 
-# 2.3 Identifying best performing model
+# Identifying best performing model
 
 We define a wrapper function around `broom::glance()` to include names of the model with perforamnce metrics, which is applied to each linear model and compile results into a dataframe for comparison. These code chunks are adapted from homework 8.
 ```{r}
@@ -152,7 +152,7 @@ all_linear_metrics %>%
 
 From the visualization, we pick the regression models with the lowest AIC and BIC, low deviance and high logLik: model 2, 3, 4. We chose model 2 for its low BIC despite a rather high deviance and low logLik.
 
-# 2.4 Coefficient Visualization
+# Coefficient Visualization
 We plot the coefficient summaries for the top 3 models.
 
 ```{r}
@@ -169,8 +169,3 @@ mod04 %>% coefplot::coefplot() +
 
 From the visualization, we determine that out of the top three models, most of the predictors in model 4 overlap with 0 For the other two models, `xn_8`, `xb_8`, `xb_7` and `xb_4` are significant predictors in both. Additionally, in model 3, Consumer K, Q as well as both regions appear to be significant predictors.
 
-We save linear models separately for future visualizations.
-```{r}
-mod03 %>% readr::write_rds('lm_mod03.rds')
-mod04 %>% readr::write_rds('lm_mod04.rds')
-```
