@@ -168,3 +168,4 @@ mod04 %>% coefplot::coefplot() +
 ```
 
 From the visualization, we determine that out of the top three models, most of the predictors in model 4 overlap with 0 For the other two models, `xn_8`, `xb_8`, `xb_7` and `xb_4` are significant predictors in both. Additionally, in model 3, Consumer K, Q as well as both regions appear to be significant predictors.
+

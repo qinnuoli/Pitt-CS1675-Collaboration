@@ -1,0 +1,146 @@
+---
+title: "Final Project Spring 2022: Part 2B"
+author: "Di Zhang"
+date: '2022-04-27'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+Under construction.
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+library(visdat)
+library(corrplot)
+library(caret)
+library(rstanarm)
+```
+
+* `tidyverse` suite of packages is used throughout the entire project.  
+* `visdat` is used in Part 1 to visually check for the missing values in the data frame. 
+* `corrplot` is used to create correlation plot, to visualize the relationship between continuous inputs.  
+* `caret` is used to train and access performance of models.
+* `rstanarm` is an alternate function for fitting models.
+
+## Read Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+```
+
+```{r, log_trans_y}
+dfii <- df_all %>% 
+  mutate(y = log(response)) %>% 
+  select(region, customer, starts_with('x'), y)
+```
+
+# Project Part 2: Regression
+
+# iiB Model Uncertainty
+
+## Load models
+We reload two models for fitting and testing in this part of the project. Model 3 is the best model from iiA with simultaneous lowest AIC and BIC. We choose model 4 as the second model to fit because we are interested in learning what the model determines as important with a much higher AIC than BIC. In addition, from previous explorations, we know that regions are found to be significant predictors.
+
+```{r, load_models}
+mod03 <- readr::read_rds('mod03.rds')
+mod04 <- readr::read_rds('mod04.rds')
+```
+
+## Generate design matrices
+```{r}
+mod3_grid <- model.matrix(y ~ (.), data = dfii)
+mod4_grid <- model.matrix(y ~ region * (.), data = dfii %>% select(-customer))
+```
+
+i) Model 3: A linear model with linear additive terms using all categorical and continuous variables
+```{r, fit_mod3_01}
+mod3_fit <- stan_lm(y ~ (.), data = dfii,
+                  prior = R2(location = 0.5),
+                  seed = 4321)
+```
+
+```{r, fit_mod3_02}
+mod3_fit %>% summary()
+plot(mod3_fit, pars = names(mod3_fit$coefficients)) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed", size = 1, alpha = 0.5) +
+  theme_bw()
+```
+The significance of the predictors largely overlap with what we already saw in iiA. All regions, 
+
+## Posterior distribution of coefficients
+```{r, fit_mod3_post_coeff}
+as.data.frame(mod3_fit) %>% tibble::as_tibble() %>% 
+  select(all_of(names(mod3_fit$coefficients))) %>% 
+  tibble::rowid_to_column("post_id") %>% 
+  pivot_longer(!c("post_id")) %>% 
+  ggplot(mapping = aes(x = value)) +
+  geom_histogram(bins = 55) +
+  facet_wrap(~name, scales = "free") +
+  theme_bw() +
+  theme(axis.text.y = element_blank())
+```
+All of the coefficients posterior distributions are affirmed to be Gaussian.
+
+
+ii) Model 4: A linear model that interacts `region` with continuous inputs (`customer` excluded)
+```{r, fit_mod4_01}
+mod4_fit <- stan_lm(y ~ region * (.), data = dfii %>% select(-customer),
+                  prior = R2(location = 0.5),
+                  seed = 5432)
+```
+
+```{r, fit_mod4_02}
+mod4_fit %>% summary()
+plot(mod4_fit, pars = names(mod4_a$coefficients)) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed", size = 1, alpha = 0.5) +
+  theme_bw()
+```
+
+## Model selection
+We use RMSE (represented by posterior $\sigma$) as the metric to assess the performance of training set on two fitted models.
+
+```{r, mod_select_01}
+purrr::map2_dfr(list(mod3_fit, mod4_fit),
+                as.character(1:2),
+                function(mod, mod_name){tibble::tibble(rsquared = bayes_R2(mod)) %>% 
+                    mutate(model_name = mod_name)}) %>% 
+  ggplot(mapping = aes(x = rsquared)) +
+  geom_freqpoly(bins = 55,
+                 mapping = aes(color = model_name),
+                 size = 1.1) +
+  coord_cartesian(xlim = c(0, 1)) +
+  ggthemes::scale_color_colorblind("Model") +
+  theme_bw()
+```
+
+```{r, mod_select_02}
+purrr::map2_dfr(list(mod3_fit, mod4_fit),
+                as.character(1:2),
+                function(mod, mod_name){as.data.frame(mod) %>% tibble::as_tibble() %>% 
+                    select(sigma) %>% 
+                    mutate(model_name = mod_name)}) %>% 
+  ggplot(mapping = aes(x = sigma)) +
+  geom_freqpoly(bins = 55,
+                 mapping = aes(color = model_name),
+                 size = 1.1) +
+  ggthemes::scale_color_colorblind("Model") +
+  theme_bw()
+```
+
+
+
+## Posterior correlation between coefficients
+```{r, fit_mod3_posterior_cor}
+as.data.frame(mod3_fit) %>% tibble::as_tibble() %>% 
+  select(all_of(names(mod3_a$coefficients))) %>% 
+  cor() %>% 
+  corrplot::corrplot(method = "square", type = "upper",
+                     order = "hclust", hclust.method = 'ward.D2')
+```
+We generate hierarchical clustered correlation plot for the inputs and found that aside from medium correlation between the customers as well as a few notable negative correlations between variables within the `xs`, `xa` and `xb` categories, all features are relatively independent of each other.
