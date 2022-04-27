@@ -145,3 +145,15 @@ coefplot::coefplot(glm_mod02)
 coefplot::coefplot(glm_mod03)
 coefplot::coefplot(glm_mod08)
 ```
+
+
+```{r, train_control_and_metric}
+trainCtrl_5cv <- trainControl(method = "cv",
+                              number = 5,
+                              summaryFunction = twoClassSummary,
+                              classProbs = TRUE,
+                              savePredictions = TRUE,)
+
+metric_roc <- "ROC"
+```
+
