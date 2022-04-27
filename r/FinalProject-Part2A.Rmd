@@ -105,11 +105,21 @@ mod06 <- lm(y ~ (.)^2, data = dfii %>% select(-region, -customer))
 mod06 %>% write_rds('mod06.rds')
 ```
 
-vii) Basis of choice 1: [BASIS NAME]
+vii) Basis 1: a linear model with natural splines of interaction between continuous inputs as basis with degree of freedom of 8
+```{r, train_mod07, eval=TRUE}
+mod07 <- lm(y ~ splines::ns(), data = dfii %>% select(-region, -customer))
+mod07 %>% write_rds('mod07.rds')
+```
 
-viii) Basis of choice 2: [BASIS NAME]
+viii) Basis 2: a linear model using sine function as basis (categorical inputs excluded)
+```{r}
+mod08 <- lm(y ~ sin(), data = dfii %>% select(-region, -customer))
+```
 
-ix) Basis of choice 3: [BASIS NAME]
+ix) Basis of choice 3: a linear model using cosine function as basis (categorical inputs excluded)
+```{r}
+
+```
 
 # Training Models and Initial Evaluations
 
