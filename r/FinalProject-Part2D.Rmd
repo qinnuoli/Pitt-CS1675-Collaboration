@@ -29,13 +29,15 @@ dfii <- df_all %>%
 
 # 2.8 Resampling with Complex Models
 
-Define training control. We use 5-fold cross-validation that repeats 5 times. Our main performance metric would be `RMSE`.
+Define training control. We are using a 5-fold cross-validation that repeats 5 times. Our main performance metric would be `RMSE`.
 ```{r}
 my_ctrl <- trainControl(method = 'repeatedcv', number = 5, repeats = 5)
 
 my_metric <- "RMSE"
 ```
 
+We fit the following models.
+i) A linear model with all categorical and continuous inputs as linear additive features
 ```{r}
 set.seed(4321)
 lm_mod01 <- train(y ~ (.),
@@ -46,6 +48,7 @@ lm_mod01 <- train(y ~ (.),
                       trControl = my_ctrl)
 ```
 
+ii) A linear model with all pairwise interactions of continuous inputs including additive categorical features.
 ```{r}
 set.seed(4321)
 lm_mod02 <- train(y ~ (.)^2,
@@ -56,6 +59,7 @@ lm_mod02 <- train(y ~ (.)^2,
                       trControl = my_ctrl)
 ```
 
+iii) A linear model interacting category input region with all continuous inputs.
 ```{r}
 set.seed(4321)
 lm_mod04 <- train(y ~ region * (.),
@@ -66,6 +70,7 @@ lm_mod04 <- train(y ~ region * (.),
                       trControl = my_ctrl)
 ```
 
+iv) A linear model with linear additive continuous feature (categorical inputs excluded)
 ```{r}
 set.seed(4321)
 lm_mod03 <- train(y ~ (.),
@@ -76,7 +81,7 @@ lm_mod03 <- train(y ~ (.),
                       trControl = my_ctrl)
 ```
 
-
+v) Elastic net model with all categorical and continuous inputs as linear additive features
 ```{r}
 set.seed(4321)
 enet_mod01 <- train(y ~ (.),
@@ -87,6 +92,7 @@ enet_mod01 <- train(y ~ (.),
                       trControl = my_ctrl)
 ```
 
+vi) Elastic net model with sine functions on `xa` inputs
 ```{r}
 set.seed(4321)
 enet_mod02 <- train(y ~ sin(xa_01) + sin(xa_02) + sin(xa_03) + sin(xa_04) + sin(xa_05) + sin(xa_06) + sin(xa_07) + sin(xa_08),
@@ -97,6 +103,7 @@ enet_mod02 <- train(y ~ sin(xa_01) + sin(xa_02) + sin(xa_03) + sin(xa_04) + sin(
                       trControl = my_ctrl)
 ```
 
+vii) Elastic net model interacting categorical variable customer with `xw` inputs
 ```{r}
 set.seed(4321)
 enet_mod03 <- train(y ~ as.factor(customer) * (I(xw_01^2) + I(xw_02)^2 + I(xw_03)^2),
@@ -107,6 +114,7 @@ enet_mod03 <- train(y ~ as.factor(customer) * (I(xw_01^2) + I(xw_02)^2 + I(xw_03
                       trControl = my_ctrl)
 ```
 
+viii) A neural network model
 ```{r}
 nnet_default <- train(y ~ (.),
                       data = dfii,
@@ -117,8 +125,7 @@ nnet_default <- train(y ~ (.),
                       trace = FALSE)
 ```
 
-
-
+ix) A random forest model
 ```{r}
 set.seed(4321)
 rf_mod <- train(y ~ (.),
@@ -129,6 +136,7 @@ rf_mod <- train(y ~ (.),
                       importance = TRUE)
 ```
 
+x) A gradient boosted tree model
 ```{r}
 gbTree_default <- train(y ~ (.),
                       data = dfii,
@@ -137,6 +145,9 @@ gbTree_default <- train(y ~ (.),
                       trControl = my_ctrl)
 ```
 
+
+# Model Selection
+We compare the trained and fitted results and visualize performance metrics below.
 ```{r}
 model_compare <- resamples(list(LM1 = lm_mod01,
                                LM2 = lm_mod02,
@@ -167,3 +178,10 @@ model_compare <- resamples(list(LM1 = lm_mod01,
 dotplot(model_compare)
 ```
 From the results above, we could determine that Gradient Boosted Tree model is the best performing model with lowest RMSE.
+
+
+```{r}
+gbTree_default$bestTune
+```
+
+
