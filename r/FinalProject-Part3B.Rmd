@@ -1,5 +1,5 @@
 ---
-title: "Final Project Spring 2022: Part 3(A)"
+title: "Final Project Spring 2022: Part 3(B)"
 author: "Qinnuo Li, Di Zhang"
 date: "4/27/2022"
 output: html_document
@@ -35,8 +35,13 @@ We will be fitting 2 Bayesian logistic regression models. The first model is our
 
 Create design matrix:
 ```{r, make_design_matrix}
-Xmat_mod03 <- model.matrix(y ~ (.), data = dfiii %>% select(-outcome))
-Xmat_mod08 <- model.matrix(y ~ sin(xn_01) + sin(xn_02) + sin(xn_03) + sin(xn_04) + sin(xn_05) + sin(xn_06) + sin(xn_07) + sin(xn_08), data = dfiii %>% select(-outcome))
+Xmat_mod03 <- model.matrix(y ~ (.),
+                           data = dfiii %>% select(-outcome))
+Xmat_mod08 <- model.matrix(y ~ sin(xn_01) + sin(xn_02) + sin(xn_03) + sin(xn_04) + sin(xn_05) + sin(xn_06) + sin(xn_07) + sin(xn_08),
+                           data = dfiii %>% select(-outcome))
+
+Xmat_mod03 %>% readr::write_rds('Xmat_mod03.rds')
+Xmat_mod08 %>% readr::write_rds('Xmat_mod08.rds')
 ```
 
 Create the lists of required information, here we specify a prior mean of 0 and a prior standard deviation of 5 for all inputs:
@@ -123,6 +128,9 @@ laplace_mod03 <- my_laplace(start_guess = rep(x = 0, ncol(info_mod03$design_matr
 laplace_mod08 <- my_laplace(start_guess = rep(x = 0, ncol(info_mod08$design_matrix)),
                             logpost_func = logistic_logpost,
                             info_mod08)
+
+laplace_mod03 %>% readr::write_rds('laplace_mod03.rds')
+laplace_mod08 %>% readr::write_rds('laplace_mod08.rds')
 ```
 
 Compare the performance of the models using the Evidence-based assessment:

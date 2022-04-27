@@ -1,0 +1,188 @@
+---
+title: "Final Project Spring 2022: Part 3(C)"
+author: "Qinnuo Li, Di Zhang"
+date: "4/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+```
+
+## Read Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+```
+
+# Project Part 3: Classification
+
+# 3.5 Make predictions and visualize trends of the 2 selected models
+
+```{r, prep_data}
+dfiii <- df_all %>% 
+  select(-rowid, -response) %>%
+  mutate(y = ifelse(outcome == "event", 1, 0))
+```
+
+```{r, read_models}
+Xmat_mod03 <- readr::read_rds('Xmat_mod03.rds')
+Xmat_mod08 <- readr::read_rds('Xmat_mod08.rds')
+laplace_mod03 <- readr::read_rds('laplace_mod03.rds')
+laplace_mod08 <- readr::read_rds('laplace_mod08.rds')
+```
+
+In part B, we compared `mod03` and `mod08` based on the Evidence, which assesses how well the model "fit" the data via likelihood, based on the constraints imposed by the prior.  
+
+The likelihood is examining how likely the binary outcome is given the event probability. Thus the Evidence is considering if the observations are consistent with the modeled event probability.  
+
+However, the logistic regression model predicts the event probability via the log-odds ratio, and NOT the binary outcome itself. In order to move from the probability to the binary outcome we must decide a threshold, so that when the predicted probability is greater than the threshold, the outcome is classified as the event. Otherwise, the outcome is classified as the non-event.  
+
+In order to classify the training points, we will now make posterior predictions with the 2 logistic regression models we have.  
+
+Define a function that generates posterior samples for our models:
+```{r, generate_post_samples, eval=TRUE}
+generate_glm_post_samples <- function(mvn_result, num_samples)
+{
+  # specify the number of unknown beta parameters
+  length_beta <- length(mvn_result$mode)
+  
+  # generate the random samples
+  beta_samples <- MASS::mvrnorm(n = num_samples,
+                                mu = mvn_result$mode,
+                                Sigma = mvn_result$var_matrix)
+  
+  # change the data type and name
+  beta_samples %>% 
+    as.data.frame() %>% tibble::as_tibble() %>% 
+    purrr::set_names(sprintf("beta_%02d", (1:length_beta) - 1))
+}
+```
+
+Define a function that calculates the posterior prediction samples on the linear predictor and the event probability:
+```{r, calc_post_pred_samples, eval=TRUE}
+post_logistic_pred_samples <- function(Xnew, Bmat)
+{
+  # calculate the linear predictor at all prediction points and posterior samples
+  eta_mat <- Xnew %*% t(Bmat)
+  
+  # calculate the event probability
+  mu_mat <- boot::inv.logit(eta_mat)
+  
+  # book keeping
+  list(eta_mat = eta_mat, mu_mat = mu_mat)
+}
+```
+
+Define a function that summarizes posterior predictions of the event probability:
+```{r, summarize_pred, eval=TRUE}
+summarize_logistic_pred_from_laplace <- function(mvn_result, Xtest, num_samples)
+{
+  # generate posterior samples of the beta parameters
+  betas <- generate_glm_post_samples(mvn_result = mvn_result,
+                                     num_samples = num_samples)
+  
+  # data type conversion
+  betas <- as.matrix(betas)
+  
+  # make posterior predictions on the test set
+  pred_test <- post_logistic_pred_samples(Xnew = Xtest,
+                                          Bmat = betas)
+  
+  # calculate summary statistics on the posterior predicted probability
+  # summarize over the posterior samples
+  
+  # posterior mean, should you summarize along rows (rowMeans) or 
+  # summarize down columns (colMeans) ???
+  mu_avg <- rowMeans(pred_test$mu_mat)
+  
+  # posterior quantiles
+  mu_q05 <- apply(pred_test$mu_mat, 1, stats::quantile, probs = 0.05)
+  mu_q95 <- apply(pred_test$mu_mat, 1, stats::quantile, probs = 0.95)
+  
+  # book keeping
+  tibble::tibble(
+    mu_avg = mu_avg,
+    mu_q05 = mu_q05,
+    mu_q95 = mu_q95
+  ) %>% 
+    tibble::rowid_to_column("pred_id")
+}
+```
+
+Make predictions and summarize the posterior predicted event probability:
+```{r, pred_on_models, eval=TRUE}
+set.seed(1983) 
+
+post_pred_summary_mod03 <- summarize_logistic_pred_from_laplace(laplace_mod03,
+                                                                Xmat_mod03,
+                                                                2500)
+
+post_pred_summary_mod08 <- summarize_logistic_pred_from_laplace(laplace_mod08,
+                                                                Xmat_mod08,
+                                                                2500)
+```
+
+Check the dimensions of the returned objects:
+```{r, dimension_check}
+dim(post_pred_summary_mod03)
+dim(post_pred_summary_mod08)
+```
+
+Create a figure for each model predictions that shows how the posterior predicted probability summaries compare with the observed binary outcomes, with primary input being `xn_01`, and secondary input being `customer`
+(haven't figure out how to keep the other inputs constant yet):
+```{r, create_figure_mod03, eval=TRUE}
+post_pred_summary_mod03 %>% 
+  mutate(type = "mod03") %>%
+  left_join(dfiii %>%
+              select(-outcome) %>%
+              tibble::rowid_to_column("pred_id"),
+            by = "pred_id") %>% 
+  ggplot(mapping = aes(x = xn_01)) +
+  geom_ribbon(mapping = aes(ymin = mu_q05,
+                            ymax = mu_q95,
+                            group = type),
+              fill = "steelblue", alpha = 0.5) +
+  geom_line(mapping = aes(y = mu_avg,
+                          group = type),
+            color = "navyblue", size = 1.15) +
+  geom_point(mapping = aes(y = y),
+             size = 2.5, alpha = 0.2) +
+  facet_wrap( . ~ dfiii$customer) +
+  labs(y = "y or event probability") +
+  theme_bw() + 
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+```{r, create_figure_mod08, eval=TRUE}
+post_pred_summary_mod08 %>% 
+  mutate(type = "mod08") %>%
+  left_join(dfiii %>%
+              select(-outcome) %>%
+              tibble::rowid_to_column("pred_id"),
+            by = "pred_id") %>% 
+  ggplot(mapping = aes(x = xn_01)) +
+  geom_ribbon(mapping = aes(ymin = mu_q05,
+                            ymax = mu_q95,
+                            group = type),
+              fill = "steelblue", alpha = 0.5) +
+  geom_line(mapping = aes(y = mu_avg,
+                          group = type),
+            color = "navyblue", size = 1.15) +
+  geom_point(mapping = aes(y = y),
+             size = 2.5, alpha = 0.2) +
+  facet_wrap( . ~ dfiii$customer) +
+  labs(y = "y or event probability") +
+  theme_bw() + 
+  theme(axis.text.y = element_blank(),
+        strip.background = element_blank())
+```
+
+The prediction mean fluctuates a lot in the figures, which I'm assuming it's caused by all other variables are not kept constant yet. However, looking at the predictive trend of each model it's following the empirical observations where the predicted event probability is high when there are more or only `event` presents, and the predicted event probability is low when there are more or only `non-event` presents.  
