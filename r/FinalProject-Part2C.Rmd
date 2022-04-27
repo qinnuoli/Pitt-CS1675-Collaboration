@@ -143,12 +143,9 @@ post_pred_summary_viz_lm_mod03 %>%
   left_join(viz_grid %>% tibble::rowid_to_column("pred_id"),
             by = 'pred_id') %>% 
   ggplot(mapping = aes(x = xb_04)) +
-  geom_ribbon(mapping = aes(ymin = y_lwr,
-                            ymax = y_upr),
-              fill = 'orange') +
   geom_ribbon(mapping = aes(ymin = mu_lwr,
                             ymax = mu_upr),
-              fill = 'grey') +
+              fill = 'darkorange') +
   geom_line(mapping = aes(y = mu_avg),
             color = 'black') +
   coord_cartesian(ylim = c(-7, 7)) +
@@ -157,18 +154,16 @@ post_pred_summary_viz_lm_mod03 %>%
   theme_bw()
 ```
 
-For model 4, it would be ``.
+Predictions fluctuates very rigidly [WIP. Will get back to this.]
+
 ```{r}
 post_pred_summary_viz_lm_mod03 %>% 
   left_join(viz_grid %>% tibble::rowid_to_column("pred_id"),
             by = 'pred_id') %>% 
   ggplot(mapping = aes(x = xb_04)) +
-  geom_ribbon(mapping = aes(ymin = y_lwr,
-                            ymax = y_upr),
-              fill = 'orange') +
   geom_ribbon(mapping = aes(ymin = mu_lwr,
                             ymax = mu_upr),
-              fill = 'grey') +
+              fill = 'darkorange') +
   geom_line(mapping = aes(y = mu_avg),
             color = 'black') +
   coord_cartesian(ylim = c(-7, 7)) +
@@ -176,6 +171,4 @@ post_pred_summary_viz_lm_mod03 %>%
   facet_wrap(. ~ dfii$region)
   theme_bw()
 ```
-
-
 
