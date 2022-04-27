@@ -1,0 +1,162 @@
+---
+title: "Final Project Spring 2022: Part 3(A)"
+author: "Qinnuo Li, Di Zhang"
+date: "4/27/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Packages
+
+```{r, load_packages}
+library(tidyverse)
+```
+
+## Read Data
+
+```{r, read_data_01}
+df_all <- readr::read_csv("final_project_train.csv", col_names = TRUE)
+```
+
+# Project Part 3: Classification
+
+# 3.4 Fit 2 Bayesian generalized linear models
+
+```{r, prep_data}
+dfiii <- df_all %>% 
+  select(-rowid, -response) %>%
+  mutate(y = ifelse(outcome == "event", 1, 0))
+```
+
+We will be fitting 2 Bayesian logistic regression models. The first model is our best pick from Part 3(A), `glm_mod03`, which is a linear model with linear additive terms using all categorical and continuous variables; the second one is my pick `glm_mod08`, which is a model with sine wave of continuous inputs from `xn`.
+
+Create design matrix:
+```{r, make_design_matrix}
+Xmat_mod03 <- model.matrix(y ~ (.), data = dfiii %>% select(-outcome))
+Xmat_mod08 <- model.matrix(y ~ sin(xn_01) + sin(xn_02) + sin(xn_03) + sin(xn_04) + sin(xn_05) + sin(xn_06) + sin(xn_07) + sin(xn_08), data = dfiii %>% select(-outcome))
+```
+
+Create the lists of required information, here we specify a prior mean of 0 and a prior standard deviation of 5 for all inputs:
+```{r, list_of_info}
+info_mod03 <- list(
+  yobs = dfiii$y,
+  design_matrix = Xmat_mod03,
+  mu_beta = 0,
+  tau_beta = 5
+)
+
+info_mod08 <- list(
+  yobs = dfiii$y,
+  design_matrix = Xmat_mod08,
+  mu_beta = 0,
+  tau_beta = 5
+)
+```
+
+Define the log-posterior function for logistic regression:
+```{r, log_post_func}
+logistic_logpost <- function(unknowns, my_info)
+{
+  # extract the design matrix and assign to X
+  X <- my_info$design_matrix
+  
+  # calculate the linear predictor
+  eta <- as.vector(X %*% as.matrix(unknowns))
+  
+  # calculate the event probability
+  mu <- boot::inv.logit(eta)
+  
+  # evaluate the log-likelihood
+  log_lik <- sum(dbinom(x = my_info$yobs,
+                        size = 1,
+                        prob = mu,
+                        log = TRUE))
+  
+  # evaluate the log-prior
+  log_prior <- sum(dnorm(x = unknowns,
+                         mean = my_info$mu_beta,
+                         sd = my_info$tau_beta,
+                         log = TRUE))
+  
+  # sum together
+  return(log_lik + log_prior)
+}
+```
+
+Define `my_laplace()`:
+```{r, define_my_laplace_func, eval=TRUE}
+my_laplace <- function(start_guess, logpost_func, ...)
+{
+  # code adapted from the `LearnBayes`` function `laplace()`
+  fit <- optim(start_guess,
+               logpost_func,
+               gr = NULL,
+               ...,
+               method = "BFGS",
+               hessian = TRUE,
+               control = list(fnscale = -1, maxit = 1001))
+  
+  mode <- fit$par
+  post_var_matrix <- -solve(fit$hessian)
+  p <- length(mode)
+  int <- p/2 * log(2 * pi) + 0.5 * log(det(post_var_matrix)) + logpost_func(mode, ...)
+  # package all of the results into a list
+  list(mode = mode,
+       var_matrix = post_var_matrix,
+       log_evidence = int,
+       converge = ifelse(fit$convergence == 0,
+                         "YES", 
+                         "NO"),
+       iter_counts = as.numeric(fit$counts[1]))
+}
+```
+
+Use `my_laplace()` to execute the Laplace Approximation for the two models, with starting guesses of 0 for all unknowns:
+```{r, execute_my_laplace_func}
+laplace_mod03 <- my_laplace(start_guess = rep(x = 0, ncol(info_mod03$design_matrix)),
+                            logpost_func = logistic_logpost,
+                            info_mod03)
+
+laplace_mod08 <- my_laplace(start_guess = rep(x = 0, ncol(info_mod08$design_matrix)),
+                            logpost_func = logistic_logpost,
+                            info_mod08)
+```
+
+Compare the performance of the models using the Evidence-based assessment:
+```{r, compare_evid_weight}
+evid_mod03 <- laplace_mod03$log_evidence %>% exp()
+evid_mod08 <- laplace_mod08$log_evidence %>% exp()
+
+model_weights <- sum(evid_mod03, evid_mod08)
+
+weight_mod03 <- evid_mod03 / model_weights
+weight_mod08 <- evid_mod08 / model_weights
+
+c(weight_mod03, weight_mod08)
+```
+
+The best model between the two is identified as `mod08` via the posterior model weights.
+
+We will then visualize the coefficient posterior summary statistics.
+
+Calculate the 95% uncertainty intervals of `mod08`:
+```{r, calc_mod09_uncertainty_intervals}
+post_mean_and_uncertainty <- tibble::tibble(
+  post_mean = laplace_mod08$mode,
+  post_sd = sqrt(diag(laplace_mod08$var_matrix))
+  ) %>%
+  tibble::rowid_to_column("beta_number") %>% 
+  mutate(beta_id = beta_number - 1,
+         post_lwr = post_mean - 2*post_sd,
+         post_upr = post_mean + 2*post_sd) %>% 
+  select(beta_id, post_mean, post_lwr, post_upr)
+```
+
+Visualize the coefficient posterior summary statistics:
+```{r}
+# will come back later
+```
+

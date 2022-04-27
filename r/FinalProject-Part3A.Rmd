@@ -1,7 +1,7 @@
 ---
 title: "Final Project Spring 2022: Part 3(A)"
 author: "Qinnuo Li, Di Zhang"
-date: "3/29/2022"
+date: "4/26/2022"
 output: html_document
 ---
 
@@ -13,16 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, load_packages}
 library(tidyverse)
-library(visdat)
-library(corrplot)
-library(caret)
 library(yardstick)
 ```
 
 * `tidyverse` suite of packages is used throughout the entire project.  
-* `visdat` is used in Part 1 to visually check for the missing values in the data frame. 
-* `corrplot` is used to create correlation plot, to visualize the relationship between continuous inputs.  
-* `caret` is used to train and access performance of models.  
 * `yardstick` is used to help visualize the ROC curve.  
 
 ## Read Data
@@ -127,7 +121,7 @@ glm_mod09 <- glm(y ~ splines::ns(xs_01, 2) + splines::ns(xs_02, 2) + splines::ns
 glm_mod09 %>% readr::write_rds('glm_mod09.rds')
 ```
 
-# Compare the performance for all 9 models
+# 3.3 Compare the performance for all 9 models
 
 ```{r}
 data.frame(glm_mod01 %>% broom::glance() %>% select(logLik, AIC, BIC, deviance)) %>%
