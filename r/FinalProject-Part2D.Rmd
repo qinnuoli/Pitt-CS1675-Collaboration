@@ -14,7 +14,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, load_packages}
 library(tidyverse)
 library(caret)
+library(earth)
 ```
+* `earth`: for fitting `MARS` model
 
 ## Read and Prep Data
 
@@ -145,7 +147,7 @@ gbTree_default <- train(y ~ (.),
                       trControl = my_ctrl)
 ```
 
-xi) A SVM model with linear additive categorical and continuous inputs
+xi) A Supporter-Vector Machine model with linear additive categorical and continuous inputs
 ```{r}
 set.seed(4321)
 svm_mod <- train(
@@ -159,6 +161,17 @@ svm_mod <- train(
 )
 ```
 
+xii) A Multivariate Adaptive Regression Splines model
+```{r}
+set.seed(4321)
+mars_mod <- train(
+  y ~ (.),
+  data = dfii,
+  method = "earth",
+  preProcess = c("center", "scale"),
+  trControl = my_ctrl,
+  metric = my_metric)
+```
 
 # Model Selection
 We compare the trained and fitted results and visualize performance metrics below.
@@ -173,7 +186,8 @@ model_compare <- resamples(list(LM1 = lm_mod01,
                                NNET = nnet_default,
                                RF = rf_mod,
                                XGBT = gbTree_default,
-                               SVM = svm_mod))
+                               SVM = svm_mod,
+                               MARS = mars_mod))
 
 dotplot(model_compare)
 ```
@@ -189,7 +203,8 @@ model_compare <- resamples(list(LM1 = lm_mod01,
                                NNET = nnet_default,
                                RF = rf_mod,
                                XGBT = gbTree_default,
-                               SVM = svm_mod))
+                               SVM = svm_mod,
+                               MARS = mars_mod))
 
 dotplot(model_compare)
 ```
