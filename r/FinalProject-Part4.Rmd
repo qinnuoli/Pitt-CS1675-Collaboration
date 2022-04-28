@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(caret)
 # install.packages('vip')
+library(vip)
 ```
 
 ## Read and Prep Data
@@ -43,16 +44,35 @@ pt2_svm <- readr::read_rds("svm_mod.rds")
 pt3_mod06 <- readr::read_rds("pt3_mod06.rds")
 ```
 
-We identify the most important variables associated with the best performing models.
+We identify the most important variables associated with the best performing models respectively.
 ```{r}
-prob_yes <- function(object, newdata) {
-  predict(pt2_svm, newdata = dfii, type = "prob")[, "Yes"]
+set.seed(4321)
+svm_mod <- train(
+  y ~ ., 
+  data = dfii,
+  method = "svmRadial",               
+  preProcess = c("center", "scale"),  
+  trControl = trainControl(method = 'repeatedcv', number = 5, repeats = 5),
+  metric = "RMSE",
+  tuneLength = 10
+)
+```
+
+We define functions required for permutation based variance importance scores:
+```{r}
+mae <- function(actual, predicted) {
+  mean(abs(actual - predicted))
 }
 
-vip::vip(pt2_svm, method = "permute", nsim = 5, train = dfii, 
-    target = "Attrition", metric = my_metric, reference_class = "Yes", 
-    pred_wrapper = prob_yes)
+pfun <- function(object, newdata) predict(object, newdata = newdata)
 ```
+
+And calculate variance importance via the `vip::vip` method for `SVM` model.
+```{r}
+vip::vip(svm_mod, method = "permute", pred_wrapper = pfun, target = "y", metric = "RMSE",
+    train = dfii)
+```
+Despite the smallness of the importance scores overall, for `SVM` model, the most important variable appears to be region.
 
 ```{r}
 plot(varImp(pt3_mod06), top = 20)
