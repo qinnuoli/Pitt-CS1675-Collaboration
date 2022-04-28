@@ -200,4 +200,8 @@ From the results above, we could determine that SVM model is the best performing
 svm_mod$bestTune
 ```
 
+```{r}
+svm_mod %>% readr::write_rds("svm_mod.rds")
+```
+
 
