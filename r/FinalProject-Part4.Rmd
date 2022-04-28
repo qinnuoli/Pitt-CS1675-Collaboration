@@ -45,19 +45,8 @@ pt3_mod06 <- readr::read_rds("pt3_mod06.rds")
 ```
 
 We identify the most important variables associated with the best performing models respectively.
-```{r}
-set.seed(4321)
-svm_mod <- train(
-  y ~ ., 
-  data = dfii,
-  method = "svmRadial",               
-  preProcess = c("center", "scale"),  
-  trControl = trainControl(method = 'repeatedcv', number = 5, repeats = 5),
-  metric = "RMSE",
-  tuneLength = 10
-)
-```
 
+i) Linear regression
 We define functions required for permutation based variance importance scores:
 ```{r}
 mae <- function(actual, predicted) {
@@ -69,7 +58,7 @@ pfun <- function(object, newdata) predict(object, newdata = newdata)
 
 And calculate variance importance via the `vip::vip` method for `SVM` model.
 ```{r}
-vip::vip(svm_mod, method = "permute", pred_wrapper = pfun, target = "y", metric = "RMSE",
+vip::vip(pt2_svm, method = "permute", pred_wrapper = pfun, target = "y", metric = "RMSE",
     train = dfii)
 ```
 Despite the smallness of the importance scores overall, for `SVM` model, the most important variable appears to be region.
@@ -79,3 +68,4 @@ plot(varImp(pt3_mod06), top = 20)
 ```
 The most important variable for the best logistic regression model is `xn_03`.
 
+`xs` inputs are not found to be the most important in either of the best models we found, though it is part of the top 20 important features for `glmnet` model featuring categorical region input interacting with all continuous inputs. Based on results thus far, we cannot determine if `xs` is helpful for prediction.
