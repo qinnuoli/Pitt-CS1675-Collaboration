@@ -145,6 +145,20 @@ gbTree_default <- train(y ~ (.),
                       trControl = my_ctrl)
 ```
 
+xi) A SVM model with linear additive categorical and continuous inputs
+```{r}
+set.seed(4321)
+svm_mod <- train(
+  y ~ (.), 
+  data = dfii,
+  method = "svmRadial",               
+  preProcess = c("center", "scale"),  
+  trControl = my_ctrl,
+  metric = my_metric,
+  tuneLength = 10
+)
+```
+
 
 # Model Selection
 We compare the trained and fitted results and visualize performance metrics below.
@@ -158,7 +172,8 @@ model_compare <- resamples(list(LM1 = lm_mod01,
                                ENET3 = enet_mod03,
                                NNET = nnet_default,
                                RF = rf_mod,
-                               XGBT = gbTree_default))
+                               XGBT = gbTree_default,
+                               SVM = svm_mod))
 
 dotplot(model_compare)
 ```
@@ -173,15 +188,16 @@ model_compare <- resamples(list(LM1 = lm_mod01,
                                ENET3 = enet_mod03,
                                NNET = nnet_default,
                                RF = rf_mod,
-                               XGBT = gbTree_default))
+                               XGBT = gbTree_default,
+                               SVM = svm_mod))
 
 dotplot(model_compare)
 ```
-From the results above, we could determine that Gradient Boosted Tree model is the best performing model with lowest RMSE.
+From the results above, we could determine that SVM model is the best performing model with lowest RMSE.
 
 
 ```{r}
-gbTree_default$bestTune
+svm_mod$bestTune
 ```
 
 
