@@ -6,9 +6,13 @@ Apr 6th
 
 Emma: Created project repo, uploaded the R markdown file with a bit of prep work.
 
-Apr 20
+Apr 20th
 
 Emma: Refactored and completed Part 1 of exploratory data analysis.
+
+Apr 29th
+
+Emma: All parts of the final project were covered, and complete submission is on the private repo for machine learning class.
 
 ### Notes & Communication
 
